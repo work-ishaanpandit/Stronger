@@ -20,9 +20,7 @@ export default function AuthGate() {
       <div className="auth-card">
         {/* Logo */}
         <div className="auth-logo-wrap">
-          <div className="auth-logo">
-            <Flame size={28} strokeWidth={1.5} />
-          </div>
+          <img src="/logo.png" alt="Stronger Logo" className="auth-logo-img" />
         </div>
 
         {/* Wordmark */}

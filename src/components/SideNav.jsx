@@ -38,7 +38,7 @@ export default function SideNav({ session }) {
     <aside className="side-nav">
       {/* Brand */}
       <div className="nav-brand">
-        <div className="nav-logo"><Flame size={16} /></div>
+        <img src="/logo.png" alt="Stronger Logo" className="nav-brand-logo-img" />
         <span>Stronger</span>
       </div>
 

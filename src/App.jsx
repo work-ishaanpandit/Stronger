@@ -30,7 +30,23 @@ export default function App() {
       if (session) fetchFromSupabase();
     });
 
-    return () => subscription.unsubscribe();
+    // 3. Set up Realtime Subscription for database updates
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public' },
+        (payload) => {
+          console.log('Realtime database sync trigger received:', payload.table);
+          fetchFromSupabase();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   if (loading) {

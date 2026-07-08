@@ -1032,10 +1032,12 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
 /* ── AuthGate ────────────────────────────────────────────────── */
 .auth-gate {
   min-height: 100vh;
+  width: 100%;
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg);
+  background: var(--canvas);
   position: relative;
   overflow: hidden;
 }
@@ -1059,7 +1061,7 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
 .auth-orb-2 {
   width: 350px;
   height: 350px;
-  background: radial-gradient(circle, rgba(107, 63, 243, 0.12) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(191, 90, 242, 0.1) 0%, transparent 70%);
   bottom: -5%;
   right: -5%;
   animation-delay: -3s;
@@ -1073,7 +1075,7 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
 .auth-card {
   position: relative;
   z-index: 1;
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(28, 28, 30, 0.45);
   border: 1px solid var(--border);
   border-radius: var(--radius-xl);
   padding: var(--sp-8) var(--sp-7);
@@ -1082,7 +1084,7 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
   text-align: center;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6);
   animation: scaleIn 0.4s var(--spring) both;
 }
 
@@ -1092,16 +1094,21 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
   margin-bottom: var(--sp-4);
 }
 
-.auth-logo {
-  width: 56px;
-  height: 56px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, var(--blue) 0%, var(--purple) 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  box-shadow: 0 8px 24px rgba(10, 132, 255, 0.4);
+.auth-logo-img {
+  width: 80px;
+  height: 80px;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.nav-brand-logo-img {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  object-fit: cover;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.08);
 }
 
 .auth-title {
