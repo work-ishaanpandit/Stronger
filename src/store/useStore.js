@@ -123,6 +123,16 @@ const useStore = create(
         });
       },
 
+      syncCoreDisciplineToSupabase: async (cd) => {
+        const user = await getUser();
+        if (!user) return;
+        await supabase.from('core_disciplines').upsert({
+          id: cd.id, user_id: user.id, name: cd.name,
+          tag: cd.tag, type: cd.type, weight: cd.weight,
+          damage: cd.damage, active: cd.active ?? true
+        });
+      },
+
       syncLogToSupabase: async (date, log) => {
         const user = await getUser();
         if (!user) return;
@@ -243,21 +253,32 @@ const useStore = create(
       // ── Core Disciplines ──────────────────────────────────────────────────────
       addCoreDiscipline: (discipline) => {
         const id = crypto.randomUUID();
+        const fullDiscipline = { ...discipline, id, active: true };
         set((state) => ({
-          coreDisciplines: [...state.coreDisciplines, { ...discipline, id, active: true }],
+          coreDisciplines: [...state.coreDisciplines, fullDiscipline],
         }));
+        get().syncCoreDisciplineToSupabase(fullDiscipline);
       },
 
       updateCoreDiscipline: (id, updates) => {
-        set((state) => ({
-          coreDisciplines: state.coreDisciplines.map(d => d.id === id ? { ...d, ...updates } : d),
-        }));
+        set((state) => {
+          const updatedDisciplines = state.coreDisciplines.map(d => {
+            if (d.id !== id) return d;
+            const updated = { ...d, ...updates };
+            get().syncCoreDisciplineToSupabase(updated);
+            return updated;
+          });
+          return { coreDisciplines: updatedDisciplines };
+        });
       },
 
       deleteCoreDiscipline: (id) => {
         set((state) => ({
           coreDisciplines: state.coreDisciplines.filter(d => d.id !== id),
         }));
+        getUser().then(user => {
+          if (user) supabase.from('core_disciplines').delete().eq('id', id).eq('user_id', user.id);
+        });
       },
 
       // ── Earnings Engine ───────────────────────────────────────────────────────
