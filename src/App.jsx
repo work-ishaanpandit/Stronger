@@ -4,6 +4,7 @@ import { supabase } from './lib/supabase';
 import useStore from './store/useStore';
 import AuthGate from './components/AuthGate';
 import SideNav from './components/SideNav';
+import MobileHeader from './components/MobileHeader';
 import BottomNav from './components/BottomNav';
 import DawnAlignment from './pages/DawnAlignment';
 import DuskSynthesis from './pages/DuskSynthesis';
@@ -61,6 +62,9 @@ export default function App() {
 
   return (
     <div className="app-container">
+      {/* Mobile top header — hidden on desktop via CSS */}
+      <MobileHeader session={session} />
+
       {/* Desktop sidebar — hidden on mobile via CSS */}
       <SideNav session={session} />
 

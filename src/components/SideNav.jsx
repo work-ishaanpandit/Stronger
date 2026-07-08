@@ -10,7 +10,7 @@ const TABS = [
   { id: 'chronicle', icon: LayoutDashboard, label: 'Chronicle',        desc: 'Track your arc' },
 ];
 
-const ICS_URL = 'webcal://localhost:3001/calendar.ics';
+const PROJECT_REF = 'gqfejgicasfexwsaokin';
 
 export default function SideNav({ session }) {
   const activeTab    = useStore((s) => s.activeTab);
@@ -22,9 +22,14 @@ export default function SideNav({ session }) {
   const avatarUrl   = user?.user_metadata?.avatar_url;
   const displayName = user?.user_metadata?.full_name || user?.email || 'User';
 
+  const icsUrl = user 
+    ? `webcal://${PROJECT_REF}.supabase.co/functions/v1/calendar-sync?user_id=${user.id}&token=mock_oauth_token`
+    : '';
+
   const handleAppleCal = () => {
-    window.open(ICS_URL, '_blank');
-    navigator.clipboard?.writeText(ICS_URL).then(() => {
+    if (!icsUrl) return;
+    window.open(icsUrl, '_blank');
+    navigator.clipboard?.writeText(icsUrl).then(() => {
       setAppleCopied(true);
       setTimeout(() => setAppleCopied(false), 2500);
     }).catch(() => {});
@@ -76,7 +81,7 @@ export default function SideNav({ session }) {
             transition: 'color 0.3s',
           }}
           onClick={handleAppleCal}
-          title={ICS_URL}
+          title={icsUrl}
         >
           {appleCopied
             ? <Check size={14} style={{ marginRight: 6 }} />
