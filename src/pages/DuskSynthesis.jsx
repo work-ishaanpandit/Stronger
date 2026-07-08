@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format, addDays, subDays, parseISO } from 'date-fns';
-import { ChevronLeft, ChevronRight, Lock, Inbox, CheckCircle, Activity, XCircle, FastForward, Calendar, Zap, Rocket, Skull, Leaf } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Lock, Inbox, CheckCircle, Activity, XCircle, FastForward, Calendar, Zap, Rocket, Skull, Leaf, RefreshCw } from 'lucide-react';
 import useStore from '../store/useStore';
 import TaskAuditModal from '../components/TaskAuditModal';
 import ReflectionPanel from '../components/ReflectionPanel';
@@ -25,6 +25,7 @@ const TYPE_ICONS = {
 
 export default function DuskSynthesis() {
   const duskDate = useStore((s) => s.duskDate);
+  const fetchFromSupabase = useStore((s) => s.fetchFromSupabase);
   const setDuskDate = useStore((s) => s.setDuskDate);
   const getTasksForDate = useStore((s) => s.getTasksForDate);
   const dailyLogs = useStore((s) => s.dailyLogs);
@@ -61,7 +62,17 @@ export default function DuskSynthesis() {
       {/* Header */}
       <div className="page-header">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1 className="page-title">Dusk Synthesis</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h1 className="page-title">Dusk Synthesis</h1>
+            <button 
+              className="btn btn-ghost btn-sm"
+              onClick={() => fetchFromSupabase()}
+              title="Force Refresh Data"
+              style={{ padding: '6px' }}
+            >
+              <RefreshCw size={16} />
+            </button>
+          </div>
           <span className={`badge ${locked ? 'badge-gray' : 'badge-blue'}`} style={{ fontSize: 12 }}>
             {locked ? 'Read-only' : 'Editable'}
           </span>

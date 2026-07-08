@@ -11,6 +11,7 @@ const TYPE_COLORS = { normal: 'var(--blue)', power: 'var(--purple)', kickass: 'v
 
 export default function DawnAlignment() {
   const dailyLogs = useStore((s) => s.dailyLogs);
+  const fetchFromSupabase = useStore((s) => s.fetchFromSupabase);
   const updateDailyLog = useStore((s) => s.updateDailyLog);
   const getTasksForDate = useStore((s) => s.getTasksForDate);
   const deleteTask = useStore((s) => s.deleteTask);
@@ -41,7 +42,17 @@ export default function DawnAlignment() {
       {/* Header */}
       <div className="page-header">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <h1 className="page-title">Dawn Alignment</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h1 className="page-title">Dawn Alignment</h1>
+            <button 
+              className="btn btn-ghost btn-sm"
+              onClick={() => fetchFromSupabase()}
+              title="Force Refresh Data"
+              style={{ padding: '6px' }}
+            >
+              <RefreshCw size={16} />
+            </button>
+          </div>
           <span className="badge badge-blue" style={{ fontSize: 12 }}>
             {format(new Date(), 'EEE, MMM d')}
           </span>
