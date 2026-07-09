@@ -16,11 +16,10 @@ function nextDay(dateStr: string) {
   return `${year}${month}${day}`;
 }
 
-function toUTCStamp(dateStr: string, timeStr: string) {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const [h, min] = timeStr.split(':').map(Number);
-  const dt = new Date(y, m - 1, d, h, min, 0);
-  return dt.toISOString().replace(/[-:.]/g, '').slice(0, 15) + 'Z';
+function toLocalFloatingTime(dateStr: string, timeStr: string) {
+  const [y, m, d] = dateStr.split('-');
+  const [h, min] = timeStr.split(':');
+  return `${y}${m}${d}T${h}${min}00`;
 }
 
 function buildSummary(task: Record<string, unknown>) {
@@ -115,8 +114,8 @@ serve(async (req) => {
         ics += `DTSTAMP:${now}\r\n`;
 
         if (task.time_block_enabled && task.time_block_start) {
-          const dtStart = toUTCStamp(task.log_date, task.time_block_start);
-          const dtEnd   = toUTCStamp(task.log_date, task.time_block_end || task.time_block_start);
+          const dtStart = toLocalFloatingTime(task.log_date, task.time_block_start);
+          const dtEnd   = toLocalFloatingTime(task.log_date, task.time_block_end || task.time_block_start);
           ics += `DTSTART:${dtStart}\r\n`;
           ics += `DTEND:${dtEnd}\r\n`;
         } else {
