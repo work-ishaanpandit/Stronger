@@ -1,13 +1,22 @@
 import { useState } from 'react';
-import { Target, X } from 'lucide-react';
+import { Target, X, Zap, Rocket, Skull, Leaf } from 'lucide-react';
 import useStore from '../store/useStore';
+
+const TASK_TYPES = [
+  { id: 'normal',     icon: Zap,    name: 'Normal',     desc: 'Weighted task',    color: 'normal' },
+  { id: 'power',      icon: Rocket, name: 'Power',      desc: '2× multiplier',    color: 'power' },
+  { id: 'kickass',    icon: Skull,  name: 'Kickass',    desc: 'Damage penalty',   color: 'kickass' },
+  { id: 'uncritical', icon: Leaf,   name: 'Uncritical', desc: 'Qualitative only', color: 'uncritical' },
+];
 
 export default function DisciplineCreationSheet({ onClose }) {
   const addCoreDiscipline = useStore((s) => s.addCoreDiscipline);
 
   const [form, setForm] = useState({
     name: '',
+    type: 'normal',
     weight: 1,
+    damage: 50,
   });
 
   const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
@@ -16,7 +25,9 @@ export default function DisciplineCreationSheet({ onClose }) {
     if (!form.name.trim()) return;
     addCoreDiscipline({
       name: form.name.trim(),
-      weight: parseFloat(form.weight) || 1,
+      type: form.type,
+      weight: form.type === 'normal' ? parseFloat(form.weight) || 1 : 1,
+      damage: form.type === 'kickass' ? parseFloat(form.damage) || 50 : 0,
       recurrence: 'daily',
       active: true,
     });
@@ -52,18 +63,53 @@ export default function DisciplineCreationSheet({ onClose }) {
         </div>
 
         <div style={{ marginBottom: 'var(--sp-5)' }}>
-          <label htmlFor="disc-weight">Weight</label>
-          <input
-            id="disc-weight"
-            type="number"
-            min="0.1"
-            max="100"
-            step="0.5"
-            className="input input-sm"
-            value={form.weight}
-            onChange={(e) => set('weight', e.target.value)}
-          />
+          <label>Discipline Type</label>
+          <div className="type-selector">
+            {TASK_TYPES.map((t) => {
+              const Icon = t.icon;
+              return (
+                <button
+                  key={t.id}
+                  className={`type-option ${form.type === t.id ? `selected ${t.color}` : ''}`}
+                  onClick={() => set('type', t.id)}
+                >
+                  <Icon className="type-icon" size={22} />
+                  <div className="type-name">{t.name}</div>
+                  <div className="type-desc">{t.desc}</div>
+                </button>
+              );
+            })}
+          </div>
         </div>
+
+        {form.type === 'normal' && (
+          <div style={{ marginBottom: 'var(--sp-5)' }}>
+            <label htmlFor="disc-weight">Weight</label>
+            <input
+              id="disc-weight"
+              type="number"
+              min="0.1"
+              max="100"
+              step="0.5"
+              className="input input-sm"
+              value={form.weight}
+              onChange={(e) => set('weight', e.target.value)}
+            />
+          </div>
+        )}
+
+        {form.type === 'kickass' && (
+          <div style={{ marginBottom: 'var(--sp-5)' }}>
+            <label htmlFor="disc-damage">Damage Penalty (₹)</label>
+            <input
+              id="disc-damage"
+              type="number" min="0" step="10"
+              className="input input-sm"
+              value={form.damage}
+              onChange={(e) => set('damage', e.target.value)}
+            />
+          </div>
+        )}
 
         <div className="divider" />
 

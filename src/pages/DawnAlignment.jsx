@@ -104,18 +104,27 @@ export default function DawnAlignment() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
-                {coreDisciplines.map((d) => (
-                  <div key={d.id} className="task-item type-normal">
-                    <div className="task-check" style={{ borderColor: 'var(--blue)', cursor: 'default' }}>
-                      <RefreshCw size={12} className="text-blue" />
-                    </div>
-                    <div className="task-info">
-                      <div className="task-name">{d.name}</div>
-                      <div className="task-meta">
-                        <span>Daily</span>
-                        <span>Weight: {d.weight}</span>
+                {coreDisciplines.map((d) => {
+                  const tType = d.type ?? 'normal';
+                  const typeColor = TYPE_COLORS[tType] ?? 'var(--blue)';
+                  const Icon = tType === 'normal' ? Zap :
+                               tType === 'power' ? Rocket :
+                               tType === 'kickass' ? Skull : Leaf;
+                  
+                  return (
+                    <div key={d.id} className={`task-item type-${tType}`}>
+                      <div className="task-check" style={{ borderColor: typeColor, cursor: 'default' }}>
+                        <RefreshCw size={12} style={{ color: typeColor }} />
                       </div>
-                    </div>
+                      <div className="task-info">
+                        <div className="task-name">{d.name}</div>
+                        <div className="task-meta">
+                          <span>Daily</span>
+                          {tType === 'normal' && <span>Weight: {d.weight}</span>}
+                          {tType === 'kickass' && <span style={{ color: 'var(--red)' }}>Damage: ₹{d.damage}</span>}
+                          {tType === 'power' && <span style={{ color: 'var(--purple)' }}>Multiplier</span>}
+                        </div>
+                      </div>
                     <button
                       className="btn btn-sm"
                       style={{ background: 'transparent', color: 'var(--text-tertiary)', padding: '4px 8px' }}
@@ -125,7 +134,8 @@ export default function DawnAlignment() {
                       <X size={16} />
                     </button>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -165,6 +175,9 @@ export default function DawnAlignment() {
                     task={task}
                     onEdit={() => { setEditTask(task); setShowSheet(true); }}
                     onDelete={() => deleteTask(TODAY, task.id)}
+                    onToggle={() => {
+                      updateTask(TODAY, task.id, { status: task.status === 'finished' ? 'missed' : 'finished', completionPercentage: task.status === 'finished' ? 0 : 1 });
+                    }}
                   />
                 ))}
               </div>
@@ -177,7 +190,14 @@ export default function DawnAlignment() {
               <div className="section-label">Today's Habit Tasks</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
                 {tasks.filter((t) => t.isCoreDiscipline).map((task) => (
-                  <TaskRow key={task.id} task={task} onEdit={() => { setEditTask(task); setShowSheet(true); }} />
+                  <TaskRow 
+                    key={task.id} 
+                    task={task} 
+                    onEdit={() => { setEditTask(task); setShowSheet(true); }} 
+                    onToggle={() => {
+                      updateTask(TODAY, task.id, { status: task.status === 'finished' ? 'missed' : 'finished', completionPercentage: task.status === 'finished' ? 0 : 1 });
+                    }}
+                  />
                 ))}
               </div>
             </div>
@@ -212,8 +232,25 @@ function TaskRow({ task, onEdit, onDelete }) {
   return (
     <div className={`task-item type-${task.type}`} onClick={onEdit} role="button" tabIndex={0}
       onKeyDown={(e) => e.key === 'Enter' && onEdit()}>
-      <div className="task-check" style={{ borderColor: typeColor }}>
-        <Icon size={14} style={{ color: typeColor }} />
+      <div 
+        className="task-check" 
+        style={{ 
+          borderColor: task.status === 'finished' ? 'var(--green)' : typeColor, 
+          cursor: onToggle ? 'pointer' : 'default',
+          background: task.status === 'finished' ? 'var(--green)22' : 'transparent'
+        }}
+        onClick={(e) => {
+          if (onToggle) {
+            e.stopPropagation();
+            onToggle();
+          }
+        }}
+      >
+        {task.status === 'finished' ? (
+          <CheckCircle size={14} style={{ color: 'var(--green)' }} />
+        ) : (
+          <Icon size={14} style={{ color: typeColor }} />
+        )}
       </div>
       <div className="task-info">
         <div className="task-name">{task.name}</div>
