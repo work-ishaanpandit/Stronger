@@ -107,20 +107,29 @@ const useStore = create(
 
       // ── Supabase: Push individual records ───────────────────────────────────
       syncTaskToSupabase: async (task) => {
-        const user = await getUser();
-        if (!user) return;
-        await supabase.from('tasks').upsert({
-          id: task.id, user_id: user.id, log_date: task.logDate,
-          name: task.name, tag: task.tag, type: task.type,
-          weight: task.weight, damage: task.damage, recurrence: task.recurrence,
-          status: task.status, completion_percentage: task.completionPercentage ?? 0,
-          original_date: task.originalDate || task.logDate, delay_count: task.delayCount || 0,
-          calendar_sync: task.calendarSync || false,
-          time_block_enabled: task.timeBlockEnabled || false,
-          time_block_start: task.timeBlockStart, time_block_end: task.timeBlockEnd,
-          has_bonus: task.hasBonus || false, is_core_discipline: task.isCoreDiscipline || false,
-          core_discipline_id: task.coreDisciplineId || null, audit_notes: task.auditNotes || '',
-        });
+        try {
+          const user = await getUser();
+          if (!user) return;
+          const { error } = await supabase.from('tasks').upsert({
+            id: task.id, user_id: user.id, log_date: task.logDate,
+            name: task.name, tag: task.tag, type: task.type,
+            weight: task.weight, damage: task.damage, recurrence: task.recurrence,
+            status: task.status, completion_percentage: task.completionPercentage ?? 0,
+            original_date: task.originalDate || task.logDate, delay_count: task.delayCount || 0,
+            calendar_sync: task.calendarSync || false,
+            time_block_enabled: task.timeBlockEnabled || false,
+            time_block_start: task.timeBlockStart, time_block_end: task.timeBlockEnd,
+            has_bonus: task.hasBonus || false, is_core_discipline: task.isCoreDiscipline || false,
+            core_discipline_id: task.coreDisciplineId || null, audit_notes: task.auditNotes || '',
+          });
+          if (error) {
+            console.error('Upsert task error:', error);
+            alert('DB Update Error: ' + error.message);
+          }
+        } catch (err) {
+          console.error('sync exception:', err);
+          alert('Sync Exception: ' + err.message);
+        }
       },
 
       syncCoreDisciplineToSupabase: async (cd) => {
@@ -228,7 +237,7 @@ const useStore = create(
         get().recalcEarnings(date);
       },
 
-      deleteTask: (date, taskId) => {
+      deleteTask: async (date, taskId) => {
         // Capture task before deletion to check calendarSync
         const taskToDelete = (get().tasks[date] ?? []).find(t => t.id === taskId);
 
@@ -239,16 +248,21 @@ const useStore = create(
           },
         }));
 
-        // Remove from ICS feed if it was synced
         if (taskToDelete?.calendarSync) removeFromICSServer(taskId);
 
-        // Remove from Supabase
-        getUser().then(user => {
+        try {
+          const user = await getUser();
           if (user) {
-            supabase.from('tasks').delete().eq('id', taskId).eq('user_id', user.id)
-              .then(({ error }) => { if (error) console.error('Failed to delete task in DB:', error); });
+            const { error } = await supabase.from('tasks').delete().eq('id', taskId).eq('user_id', user.id);
+            if (error) {
+              console.error('Failed to delete task:', error);
+              alert('DB Delete Error: ' + error.message);
+            }
           }
-        });
+        } catch (err) {
+          console.error('Delete exception:', err);
+          alert('Delete exception: ' + err.message);
+        }
 
         get().recalcEarnings(date);
       },
