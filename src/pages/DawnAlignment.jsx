@@ -18,6 +18,7 @@ export default function DawnAlignment() {
   const initDay = useStore((s) => s.initDay);
   const coreDisciplines = useStore((s) => s.coreDisciplines);
   const deleteCoreDiscipline = useStore((s) => s.deleteCoreDiscipline);
+  const updateTask = useStore((s) => s.updateTask);
   const earnings = useStore((s) => s.earnings);
 
   const [showSheet, setShowSheet] = useState(false);
@@ -222,7 +223,7 @@ export default function DawnAlignment() {
   );
 }
 
-function TaskRow({ task, onEdit, onDelete }) {
+function TaskRow({ task, onEdit, onDelete, onToggle }) {
   const typeColor = TYPE_COLORS[task.type] ?? 'var(--blue)';
   
   const Icon = task.type === 'normal' ? Zap :
