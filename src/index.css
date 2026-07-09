@@ -1291,10 +1291,20 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
   .auth-title { font-size: 24px; }
 }
 
+/* ── Dynamic Island & Safe Areas ── */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
 
 /* ── Mobile Header ───────────────── */
 .mobile-header {
   display: none; /* hidden on desktop */
+}
+
+/* Mobile Drawer Overlay */
+.side-nav-mobile-overlay {
+  display: none;
 }
 
 @media (max-width: 899px) {
@@ -1302,8 +1312,8 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
     display: flex;
     align-items: center;
     justify-content: space-between;
-    height: 60px;
-    padding: 0 var(--sp-4);
+    height: calc(60px + var(--safe-top));
+    padding: var(--safe-top) var(--sp-4) 0;
     background: rgba(10, 10, 15, 0.85);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--surface-light);
@@ -1313,14 +1323,22 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
     right: 0;
     z-index: 100;
   }
+  
+  .mobile-header-left {
+    display: flex;
+    align-items: center;
+    flex: 1; /* push center to actual center */
+  }
 
   .mobile-header-brand {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     font-weight: 600;
     font-size: 16px;
     color: var(--text-primary);
+    flex: 1;
   }
 
   .mobile-header-logo {
@@ -1332,13 +1350,15 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
   .mobile-header-actions {
     display: flex;
     align-items: center;
+    justify-content: flex-end;
     gap: 16px;
+    flex: 1;
   }
 
   .mobile-header-btn {
     background: transparent;
     border: none;
-    color: var(--blue);
+    color: var(--text-secondary);
     padding: 4px;
     cursor: pointer;
     display: flex;
@@ -1373,6 +1393,47 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
 
   .app-container {
     /* Push content down so it doesn't hide behind the mobile header */
-    padding-top: 60px;
+    padding-top: calc(60px + var(--safe-top));
   }
+  
+  /* Lift bottom nav above home indicator */
+  .bottom-nav {
+    padding-bottom: calc(var(--safe-bottom) + 8px);
+    height: calc(60px + var(--safe-bottom) + 8px);
+  }
+
+  /* Drawer CSS */
+  .side-nav {
+    position: fixed;
+    top: 0;
+    left: -280px; /* Hidden offscreen by default */
+    height: 100vh;
+    z-index: 200;
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex !important; /* Override the desktop media query hiding it */
+    padding-top: calc(var(--sp-6) + var(--safe-top));
+    padding-bottom: calc(var(--sp-6) + var(--safe-bottom));
+  }
+
+  .side-nav.mobile-open {
+    left: 0;
+  }
+
+  .side-nav-mobile-overlay {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+    z-index: 150;
+    animation: fadeIn 0.3s ease;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }

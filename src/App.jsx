@@ -16,6 +16,7 @@ export default function App() {
 
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     // 1. Check for existing session on mount
@@ -63,10 +64,14 @@ export default function App() {
   return (
     <div className="app-container">
       {/* Mobile top header — hidden on desktop via CSS */}
-      <MobileHeader session={session} />
+      <MobileHeader session={session} onMenuClick={() => setIsMobileMenuOpen(true)} />
 
-      {/* Desktop sidebar — hidden on mobile via CSS */}
-      <SideNav session={session} />
+      {/* Desktop sidebar — hidden on mobile via CSS (unless explicitly open as a drawer) */}
+      <SideNav 
+        session={session} 
+        isMobileOpen={isMobileMenuOpen} 
+        onCloseMobile={() => setIsMobileMenuOpen(false)} 
+      />
 
       {/* Main content area */}
       <div className="main-content">

@@ -12,7 +12,7 @@ const TABS = [
 
 const PROJECT_REF = 'gqfejgicasfexwsaokin';
 
-export default function SideNav({ session }) {
+export default function SideNav({ session, isMobileOpen, onCloseMobile }) {
   const activeTab    = useStore((s) => s.activeTab);
   const setActiveTab = useStore((s) => s.setActiveTab);
   const today        = format(new Date(), 'EEE, MMM d');
@@ -40,9 +40,15 @@ export default function SideNav({ session }) {
   };
 
   return (
-    <aside className="side-nav">
-      {/* Brand */}
-      <div className="nav-brand">
+    <>
+      {/* Mobile Drawer Backdrop */}
+      {isMobileOpen && (
+        <div className="side-nav-mobile-overlay" onClick={onCloseMobile} />
+      )}
+
+      <aside className={`side-nav ${isMobileOpen ? 'mobile-open' : ''}`}>
+        {/* Brand */}
+        <div className="nav-brand">
         <img src="/logo.png" alt="Stronger Logo" className="nav-brand-logo-img" />
         <span>Stronger</span>
       </div>
@@ -56,7 +62,10 @@ export default function SideNav({ session }) {
             <button
               key={tab.id}
               className={`nav-item ${isActive ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setActiveTab(tab.id);
+                if (isMobileOpen) onCloseMobile();
+              }}
             >
               <div className="nav-item-icon"><Icon size={18} /></div>
               <div className="nav-item-text">
@@ -119,5 +128,6 @@ export default function SideNav({ session }) {
         )}
       </div>
     </aside>
+    </>
   );
 }
