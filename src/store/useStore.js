@@ -244,7 +244,10 @@ const useStore = create(
 
         // Remove from Supabase
         getUser().then(user => {
-          if (user) supabase.from('tasks').delete().eq('id', taskId).eq('user_id', user.id);
+          if (user) {
+            supabase.from('tasks').delete().eq('id', taskId).eq('user_id', user.id)
+              .then(({ error }) => { if (error) console.error('Failed to delete task in DB:', error); });
+          }
         });
 
         get().recalcEarnings(date);
@@ -277,7 +280,10 @@ const useStore = create(
           coreDisciplines: state.coreDisciplines.filter(d => d.id !== id),
         }));
         getUser().then(user => {
-          if (user) supabase.from('core_disciplines').delete().eq('id', id).eq('user_id', user.id);
+          if (user) {
+            supabase.from('core_disciplines').delete().eq('id', id).eq('user_id', user.id)
+              .then(({ error }) => { if (error) console.error('Failed to delete core discipline in DB:', error); });
+          }
         });
       },
 
