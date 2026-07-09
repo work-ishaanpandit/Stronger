@@ -274,14 +274,28 @@ export default function TaskCreationSheet({ date, task = null, onClose }) {
 
         <div className="divider" />
 
-        <button
-          className="btn btn-primary"
-          style={{ width: '100%' }}
-          onClick={handleSave}
-          disabled={!form.name.trim()}
-        >
-          {isEdit ? 'Save Changes' : 'Add Task'}
-        </button>
+        <div style={{ display: 'flex', gap: 'var(--sp-3)' }}>
+          {isEdit && (
+            <button
+              className="btn"
+              style={{ flex: 1, border: '1px solid var(--red)', color: 'var(--red)', background: 'transparent' }}
+              onClick={() => {
+                useStore.getState().deleteTask(date, task.id);
+                onClose();
+              }}
+            >
+              Delete
+            </button>
+          )}
+          <button
+            className="btn btn-primary"
+            style={{ flex: 2 }}
+            onClick={handleSave}
+            disabled={!form.name.trim()}
+          >
+            {isEdit ? 'Save Changes' : 'Add Task'}
+          </button>
+        </div>
       </div>
     </div>
   );
