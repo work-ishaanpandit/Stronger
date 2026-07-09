@@ -82,7 +82,7 @@ export default function TaskCreationSheet({ date, task = null, onClose }) {
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="sheet" role="dialog" aria-modal="true" aria-label={isEdit ? 'Edit Task' : 'New Task'}>
-        <div className="sheet-handle" />
+
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--sp-5)' }}>
           <h2 className="text-xl font-semibold">{isEdit ? 'Edit Task' : 'New Task'}</h2>

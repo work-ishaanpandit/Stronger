@@ -26,7 +26,7 @@ export default function DisciplineCreationSheet({ onClose }) {
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="sheet" role="dialog" aria-modal="true" aria-label="New Core Discipline">
-        <div className="sheet-handle" />
+
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--sp-5)' }}>
           <h2 className="text-xl font-semibold" style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>

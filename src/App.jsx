@@ -5,7 +5,6 @@ import useStore from './store/useStore';
 import AuthGate from './components/AuthGate';
 import SideNav from './components/SideNav';
 import MobileHeader from './components/MobileHeader';
-import BottomNav from './components/BottomNav';
 import DawnAlignment from './pages/DawnAlignment';
 import DuskSynthesis from './pages/DuskSynthesis';
 import ChronicleGrid from './pages/ChronicleGrid';
@@ -79,9 +78,6 @@ export default function App() {
         {activeTab === 'dusk'      && <DuskSynthesis />}
         {activeTab === 'chronicle' && <ChronicleGrid />}
       </div>
-
-      {/* Mobile bottom nav — only shown on mobile via CSS */}
-      <BottomNav />
     </div>
   );
 }
