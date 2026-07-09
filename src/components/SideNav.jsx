@@ -80,24 +80,6 @@ export default function SideNav({ session, isMobileOpen, onCloseMobile }) {
       {/* Footer */}
       <div className="nav-footer">
 
-        {/* Apple Calendar */}
-        <button
-          className="btn btn-sm btn-ghost"
-          style={{
-            width: '100%', justifyContent: 'flex-start', fontSize: 12,
-            padding: 'var(--sp-2) var(--sp-3)',
-            color: appleCopied ? 'var(--green)' : undefined,
-            transition: 'color 0.3s',
-          }}
-          onClick={handleAppleCal}
-          title={icsUrl}
-        >
-          {appleCopied
-            ? <Check size={14} style={{ marginRight: 6 }} />
-            : <Link size={14} style={{ marginRight: 6 }} />
-          }
-          {appleCopied ? 'URL Copied!' : 'Subscribe Apple Cal'}
-        </button>
 
         <div className="nav-date-chip">
           <Sun size={12} />
@@ -116,14 +98,25 @@ export default function SideNav({ session, isMobileOpen, onCloseMobile }) {
               }
               <div className="nav-user-name" title={user.email}>{displayName.split(' ')[0]}</div>
             </div>
-            <button
-              className="btn btn-sm btn-ghost btn-icon"
-              onClick={handleSignOut}
-              title="Sign out"
-              aria-label="Sign out"
-            >
-              <LogOut size={14} />
-            </button>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <button
+                className="btn btn-sm btn-ghost btn-icon"
+                onClick={handleAppleCal}
+                title={appleCopied ? 'URL Copied!' : 'Subscribe to Apple Calendar'}
+                aria-label="Subscribe to Apple Calendar"
+                style={{ color: appleCopied ? 'var(--green)' : undefined }}
+              >
+                {appleCopied ? <Check size={14} /> : <CalendarIcon size={14} />}
+              </button>
+              <button
+                className="btn btn-sm btn-ghost btn-icon"
+                onClick={handleSignOut}
+                title="Sign out"
+                aria-label="Sign out"
+              >
+                <LogOut size={14} />
+              </button>
+            </div>
           </div>
         )}
       </div>

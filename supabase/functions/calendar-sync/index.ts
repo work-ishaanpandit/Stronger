@@ -105,8 +105,10 @@ serve(async (req) => {
         const uid     = `stronger-${task.id}@stronger.app`;
         const summary = buildSummary(task);
         const desc    = `Tag: ${task.tag || 'None'} | Status: ${task.status || 'pending'}`;
-        const status  = task.status === 'completed' ? 'CONFIRMED'
-                      : task.status === 'missed'    ? 'CANCELLED' : 'TENTATIVE';
+        const isPast = task.log_date < todayStr;
+        const status = task.status === 'finished' ? 'CONFIRMED'
+                     : (task.status === 'missed' && isPast) ? 'CANCELLED'
+                     : 'TENTATIVE'; // 'missed' today or future is still pending
 
         ics += 'BEGIN:VEVENT\r\n';
         ics += `UID:${uid}\r\n`;
