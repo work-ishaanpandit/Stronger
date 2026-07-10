@@ -7,8 +7,10 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell,
 } from 'recharts';
-import { ChevronLeft, ChevronRight, TrendingUp, BarChart2, Zap, LayoutDashboard, Calendar as CalendarIcon, ArrowRight, Search, Target, PieChart as PieChartIcon, Flame } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp, BarChart2, Zap, LayoutDashboard, Calendar as CalendarIcon, ArrowRight, Search, Target, PieChart as PieChartIcon, Flame, IndianRupee } from 'lucide-react';
 import useStore from '../store/useStore';
+import SettleUpModal from '../components/SettleUpModal';
+import AIInsightCard from '../components/AIInsightCard';
 
 export default function ChronicleGrid() {
   const [viewMonth, setViewMonth] = useState(new Date());
@@ -21,12 +23,15 @@ export default function ChronicleGrid() {
   const searchResults = searchQuery.trim() ? searchEntries(searchQuery) : [];
   const dailyLogs = useStore((s) => s.dailyLogs);
   const earnings = useStore((s) => s.earnings);
-  const setEarningsClaimed = useStore((s) => s.setEarningsClaimed);
   const setActiveTab = useStore((s) => s.setActiveTab);
   const setDuskDate = useStore((s) => s.setDuskDate);
   const getEarningsHistory = useStore((s) => s.getEarningsHistory);
   const getTasksHistory = useStore((s) => s.getTasksHistory);
   const coreDisciplines = useStore((s) => s.coreDisciplines);
+  const getPendingRemuneration = useStore((s) => s.getPendingRemuneration);
+
+  const [showSettleModal, setShowSettleModal] = useState(false);
+  const { totalPending, pendingDays } = getPendingRemuneration();
 
   const earningsHistory = getEarningsHistory(30);
   const tasksHistory = getTasksHistory(30);
@@ -239,25 +244,6 @@ export default function ChronicleGrid() {
                   </div>
                 </div>
               )}
-
-              {/* Remuneration Received Checkbox */}
-              {selectedEarnings?.R_calc > 0 && (
-                <div
-                  className="toggle-wrap"
-                  onClick={() => setEarningsClaimed(selectedDate, !selectedEarnings?.claimed)}
-                  role="switch"
-                  aria-checked={selectedEarnings?.claimed ?? false}
-                  tabIndex={0}
-                  onKeyDown={(e) => e.key === 'Enter' && setEarningsClaimed(selectedDate, !selectedEarnings?.claimed)}
-                  style={{ padding: 'var(--sp-3)', background: 'var(--elevated)', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}
-                >
-                  <div className={`toggle ${selectedEarnings?.claimed ? 'on' : ''}`} />
-                  <div>
-                    <div className="text-sm font-medium">Remuneration Received</div>
-                    <div className="text-xs text-tertiary">₹{selectedEarnings.R_calc.toFixed(2)}</div>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
@@ -265,10 +251,37 @@ export default function ChronicleGrid() {
 
         {/* RIGHT COLUMN: Full Analytics View */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-6)' }}>
+          {/* F2.1: Pending Remuneration Tile */}
+          <div className="card" style={{ padding: 'var(--sp-5)', background: 'linear-gradient(135deg, rgba(48,209,88,0.1) 0%, rgba(10,132,255,0.05) 100%)', border: '1px solid rgba(48,209,88,0.2)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h3 className="text-lg font-semibold" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 'var(--sp-2)' }}>
+                  <IndianRupee className="text-green" size={20} />
+                  Pending Remuneration
+                </h3>
+                <div className="text-sm text-secondary" style={{ marginBottom: 'var(--sp-4)' }}>
+                  {pendingDays.length} unclaimed {pendingDays.length === 1 ? 'day' : 'days'}
+                </div>
+                <div className="text-3xl font-bold" style={{ color: 'var(--green)' }}>
+                  ₹{totalPending.toFixed(2)}
+                </div>
+              </div>
+              <button 
+                className="btn btn-primary"
+                onClick={() => setShowSettleModal(true)}
+                disabled={pendingDays.length === 0}
+              >
+                Settle Up
+              </button>
+            </div>
+          </div>
+
           <AnalyticsView earningsHistory={earningsHistory} tasksHistory={tasksHistory} coreDisciplines={coreDisciplines} />
         </div>
 
       </div>
+
+      {showSettleModal && <SettleUpModal onClose={() => setShowSettleModal(false)} />}
     </main>
   );
 }
@@ -414,6 +427,11 @@ function AnalyticsView({ earningsHistory, tasksHistory, coreDisciplines }) {
           <option value="monthly">Monthly</option>
         </select>
       </div>
+
+      {/* F2.2: AI Insight Card (Only for Weekly/Monthly) */}
+      {(timeView === 'weekly' || timeView === 'monthly') && (
+        <AIInsightCard timeView={timeView} />
+      )}
 
       {/* Multi-Bar Goal Consistency Chart */}
       <div className="card" style={{ padding: 'var(--sp-5)' }}>

@@ -420,6 +420,72 @@ const useStore = create(
         if (!error) set({ calendarToken: newToken });
         return newToken;
       },
+
+      // ── Pending Remuneration (F2.1) ───────────────────────────────────────────
+      getPendingRemuneration: () => {
+        const { earnings } = get();
+        const pendingDays = Object.entries(earnings)
+          .filter(([_, data]) => !data.claimed && data.R_calc > 0)
+          .sort(([aDate], [bDate]) => (aDate < bDate ? -1 : 1));
+        
+        const totalPending = pendingDays.reduce((sum, [_, data]) => sum + (data.R_calc || 0), 0);
+        return { totalPending, pendingDays };
+      },
+
+      settleUp: async (amountReceived) => {
+        const { getPendingRemuneration, earnings } = get();
+        const { pendingDays, totalPending } = getPendingRemuneration();
+        if (pendingDays.length === 0) return;
+
+        const user = await getUser();
+        if (!user) return;
+
+        // Spread the amountReceived proportionally across the pending days, or just mark all claimed.
+        // The requirement says "Settle Up popup lets you enter actual amount received... and marks those days as claimed".
+        // We update the DB and local state.
+        
+        const updates = pendingDays.map(([date, data]) => ({
+            date, user_id: user.id,
+            r_calc: data.R_calc ?? 0,
+            e_base: data.E_base ?? 0,
+            p_base: data.P_base ?? 0,
+            p_potential: data.P_potential ?? 0,
+            d_tot: data.D_tot ?? 0,
+            m_pow: data.M_pow ?? 1,
+            new_debt: data.newDebt ?? 0,
+            claimed: true, // Marking as claimed
+            // For simplicity, we just store the actual amount received on the most recent day settled,
+            // or we could store it evenly. We added `amount_received` to earnings.
+            // Actually, we can just update the DB with claimed=true.
+            // Let's store amountReceived on the last day just for record keeping, or spread it.
+            // The migration added amount_received. Let's put the full amountReceived on the latest day.
+        }));
+        
+        // Put the total amountReceived on the latest day in the batch
+        if (updates.length > 0 && amountReceived !== undefined) {
+          updates[updates.length - 1].amount_received = amountReceived;
+        }
+
+        const { error } = await supabase.from('earnings').upsert(updates);
+
+        if (!error) {
+          set((state) => {
+            const newEarnings = { ...state.earnings };
+            pendingDays.forEach(([date, _]) => {
+              newEarnings[date] = { ...newEarnings[date], claimed: true };
+            });
+            // if amountReceived is passed, add it to local state as well for the latest day
+            if (pendingDays.length > 0 && amountReceived !== undefined) {
+              const latestDate = pendingDays[pendingDays.length - 1][0];
+              newEarnings[latestDate].amountReceived = amountReceived;
+            }
+            return { earnings: newEarnings };
+          });
+        } else {
+          console.error("Failed to settle up:", error);
+          alert("Failed to settle up: " + error.message);
+        }
+      },
     }),
     {
       name: 'stronger-storage',
