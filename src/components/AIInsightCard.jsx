@@ -35,7 +35,7 @@ export default function AIInsightCard({ timeView = 'weekly' }) {
       setInsight(data);
     } catch (err) {
       console.error("AI Insight Error:", err);
-      setError("Could not generate insight at this time.");
+      setError(err.message || "Could not generate insight at this time.");
     } finally {
       setLoading(false);
     }
