@@ -48,6 +48,7 @@ const useStore = create(
       earnings: {},
       activeTab: 'dawn',
       duskDate: todayStr(),
+      calendarToken: null,
 
       // ── Tab navigation ──────────────────────────────────────────────────────
       setActiveTab: (tab) => set({ activeTab: tab }),
@@ -58,11 +59,12 @@ const useStore = create(
         const user = await getUser();
         if (!user) return;
 
-        const [logsRes, tasksRes, cdRes, earnRes] = await Promise.all([
+        const [logsRes, tasksRes, cdRes, earnRes, profileRes] = await Promise.all([
           supabase.from('daily_logs').select('*').eq('user_id', user.id),
           supabase.from('tasks').select('*').eq('user_id', user.id),
           supabase.from('core_disciplines').select('*').eq('user_id', user.id),
           supabase.from('earnings').select('*').eq('user_id', user.id),
+          supabase.from('profiles').select('calendar_token').eq('id', user.id).maybeSingle(),
         ]);
 
         if (logsRes.error || tasksRes.error || cdRes.error || earnRes.error) return;
@@ -102,7 +104,8 @@ const useStore = create(
           };
         });
 
-        set({ dailyLogs, tasks, coreDisciplines: cdRes.data || [], earnings });
+        const calendarToken = profileRes.data?.calendar_token ?? null;
+        set({ dailyLogs, tasks, coreDisciplines: cdRes.data || [], earnings, calendarToken });
       },
 
       // ── Supabase: Push individual records ───────────────────────────────────
@@ -272,11 +275,16 @@ const useStore = create(
       },
 
       // ── Core Disciplines ──────────────────────────────────────────────────────
+      // F5 FIX: await Supabase write BEFORE updating local state.
+      // Previously, local state updated first → initDay injected tasks with a
+      // coreDisciplineId that didn't exist in Supabase yet → FK constraint error.
       addCoreDiscipline: async (discipline) => {
         const id = crypto.randomUUID();
         const fullDiscipline = { ...discipline, id, active: true };
         try {
+          // Write to DB first — must complete before local state triggers initDay
           await get().syncCoreDisciplineToSupabase(fullDiscipline);
+          // Now safe to update local state (re-render → initDay → task injection)
           set((state) => ({
             coreDisciplines: [...state.coreDisciplines, fullDiscipline],
           }));
@@ -331,11 +339,24 @@ const useStore = create(
       },
 
       // ── Rollover Logic ────────────────────────────────────────────────────────
+      // F4 FIX: Deduplicate rollover tasks — if Submit Day is pressed multiple
+      // times, guard against duplicate rollovers landing in the target date.
       processRollovers: (fromDate) => {
         const { tasks, addTask } = get();
         const toDate = format(addDays(new Date(fromDate + 'T00:00:00'), 1), 'yyyy-MM-dd');
         const rollovers = generateRollovers(tasks[fromDate] ?? [], toDate);
-        rollovers.forEach(t => addTask(toDate, t));
+        const existingInTarget = tasks[toDate] ?? [];
+
+        rollovers.forEach(t => {
+          // Skip if a task with the same original origin + name already exists in target
+          const isDuplicate = existingInTarget.some(
+            existing =>
+              existing.name === t.name &&
+              (existing.originalDate === t.originalDate ||
+               (existing.coreDisciplineId && existing.coreDisciplineId === t.coreDisciplineId))
+          );
+          if (!isDuplicate) addTask(toDate, t);
+        });
       },
 
       // ── Chronicle helpers ──────────────────────────────────────────────────────
@@ -386,6 +407,18 @@ const useStore = create(
         });
 
         return results.sort((a, b) => (a.date < b.date ? 1 : -1));
+      },
+
+      // ── Calendar Token (F1) ───────────────────────────────────────────────────
+      generateCalendarToken: async () => {
+        const user = await getUser();
+        if (!user) return;
+        const newToken = crypto.randomUUID();
+        const { error } = await supabase
+          .from('profiles')
+          .upsert({ id: user.id, calendar_token: newToken }, { onConflict: 'id' });
+        if (!error) set({ calendarToken: newToken });
+        return newToken;
       },
     }),
     {

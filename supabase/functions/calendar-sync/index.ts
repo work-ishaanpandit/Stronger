@@ -58,13 +58,19 @@ serve(async (req) => {
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-
-    // ⚠️  Use the SERVICE ROLE key to bypass Row Level Security so the
-    //     Edge Function can read the user's tasks without being blocked.
-    //     This is safe because we are validating user_id via the token param
-    //     and this function is server-side trusted code.
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const supabase   = createClient(supabaseUrl, serviceKey);
+
+    // F1: Validate token against the profiles table
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('calendar_token')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (profileError || !profile || profile.calendar_token !== token) {
+      return new Response('Unauthorized: invalid calendar token', { status: 401 });
+    }
 
     // Fetch all tasks where calendar_sync is true for this user
     const { data: tasks, error } = await supabase

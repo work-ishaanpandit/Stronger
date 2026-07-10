@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format, addDays, subDays, parseISO } from 'date-fns';
-import { ChevronLeft, ChevronRight, Lock, Inbox, CheckCircle, Activity, XCircle, FastForward, Calendar, Zap, Rocket, Skull, Leaf, RefreshCw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Lock, Inbox, CheckCircle, Activity, XCircle, FastForward, Calendar, Zap, Rocket, Skull, Leaf, RefreshCw, ArrowUpDown, Star } from 'lucide-react';
 import useStore from '../store/useStore';
 import TaskAuditModal from '../components/TaskAuditModal';
 import ReflectionPanel from '../components/ReflectionPanel';
@@ -23,6 +23,29 @@ const TYPE_ICONS = {
   uncritical: Leaf,
 };
 
+// F2: Sort order definitions
+const SORT_MODES = [
+  { key: 'default',  label: 'Default',  order: ['normal', 'power', 'kickass', 'uncritical'] },
+  { key: 'impact',   label: 'Impact',   order: ['kickass', 'power', 'normal', 'uncritical'] },
+  { key: 'time',     label: 'Oldest → Newest', order: null },
+];
+
+function sortTasks(tasks, mode) {
+  if (mode === 'time') {
+    return [...tasks].sort((a, b) => {
+      const aDate = a.originalDate || a.logDate || '';
+      const bDate = b.originalDate || b.logDate || '';
+      return aDate < bDate ? -1 : aDate > bDate ? 1 : 0;
+    });
+  }
+  const order = SORT_MODES.find(s => s.key === mode)?.order ?? SORT_MODES[0].order;
+  return [...tasks].sort((a, b) => {
+    const ai = order.indexOf(a.type ?? 'normal');
+    const bi = order.indexOf(b.type ?? 'normal');
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  });
+}
+
 export default function DuskSynthesis() {
   const duskDate = useStore((s) => s.duskDate);
   const fetchFromSupabase = useStore((s) => s.fetchFromSupabase);
@@ -33,6 +56,7 @@ export default function DuskSynthesis() {
   const processRollovers = useStore((s) => s.processRollovers);
 
   const [auditTask, setAuditTask] = useState(null);
+  const [sortModeIdx, setSortModeIdx] = useState(0); // F2: sort mode index
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -40,6 +64,8 @@ export default function DuskSynthesis() {
   const log = dailyLogs[duskDate] ?? {};
   const todayEarnings = earnings[duskDate];
   const locked = !isDateEditable(duskDate);
+  const sortMode = SORT_MODES[sortModeIdx]; // F2
+  const sortedTasks = sortTasks(tasks, sortMode.key); // F2
 
   const goBack = () => {
     const prev = format(subDays(parseISO(duskDate), 1), 'yyyy-MM-dd');
@@ -88,6 +114,24 @@ export default function DuskSynthesis() {
           </span>
         </div>
         <div className="page-subtitle">Audit tasks, log reflections, and close the day</div>
+
+        {/* F3: Today's Highlight — read-only chip in header */}
+        {log.highlight && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '10px',
+            marginTop: '12px',
+            padding: '10px 14px',
+            background: 'var(--elevated)',
+            border: '1px solid var(--border)',
+            borderLeft: '3px solid var(--blue)',
+            borderRadius: 'var(--radius-md)',
+          }}>
+            <Star size={14} style={{ color: 'var(--blue)', flexShrink: 0 }} />
+            <span className="text-sm" style={{ color: 'var(--text-secondary)', fontStyle: 'italic', lineHeight: 1.4 }}>
+              {log.highlight}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="spatial-grid">
@@ -120,17 +164,23 @@ export default function DuskSynthesis() {
             </div>
           )}
 
-          {/* Highlight Preview */}
-          {log.highlight && (
-            <div className="card" style={{ padding: 'var(--sp-4)', borderLeft: '3px solid var(--blue)' }}>
-              <div className="text-xs text-tertiary" style={{ marginBottom: 4 }}>Today's Highlight</div>
-              <div className="text-base font-medium">{log.highlight}</div>
-            </div>
-          )}
+          {/* F3: Highlight Preview card REMOVED — now shown in page header */}
 
           {/* Tasks Audit */}
           <div>
-            <div className="section-label">Task Audit</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--sp-3)' }}>
+              <div className="section-label" style={{ marginBottom: 0 }}>Task Audit</div>
+              {/* F2: Sort mode cycle button */}
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => setSortModeIdx((i) => (i + 1) % SORT_MODES.length)}
+                title={`Sort: ${sortMode.label}`}
+                style={{ display: 'flex', alignItems: 'center', gap: 6 }}
+              >
+                <ArrowUpDown size={13} />
+                <span style={{ fontSize: 11 }}>{sortMode.label}</span>
+              </button>
+            </div>
 
             {tasks.length === 0 ? (
               <div className="card" style={{ padding: 'var(--sp-5)', textAlign: 'center', color: 'var(--text-tertiary)' }}>
@@ -141,7 +191,7 @@ export default function DuskSynthesis() {
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
-                {tasks.map((task) => {
+                {sortedTasks.map((task) => {
                   const s = STATUS_ICONS[task.status] ?? STATUS_ICONS.missed;
                   const StatusIcon = s.icon;
                   const TypeIcon = TYPE_ICONS[task.type] ?? Zap;
