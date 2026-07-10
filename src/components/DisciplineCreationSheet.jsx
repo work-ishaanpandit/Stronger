@@ -14,23 +14,29 @@ export default function DisciplineCreationSheet({ onClose }) {
 
   const [form, setForm] = useState({
     name: '',
+    tag: '',
     type: 'normal',
     weight: 1,
     damage: 50,
   });
 
+  const [saving, setSaving] = useState(false);
+
   const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
 
-  const handleSave = () => {
-    if (!form.name.trim()) return;
-    addCoreDiscipline({
+  const handleSave = async () => {
+    if (!form.name.trim() || saving) return;
+    setSaving(true);
+    await addCoreDiscipline({
       name: form.name.trim(),
+      tag: form.tag.trim() || null,
       type: form.type,
       weight: form.type === 'normal' ? parseFloat(form.weight) || 1 : 1,
       damage: form.type === 'kickass' ? parseFloat(form.damage) || 50 : 0,
       recurrence: 'daily',
       active: true,
     });
+    setSaving(false);
     onClose();
   };
 
@@ -59,6 +65,18 @@ export default function DisciplineCreationSheet({ onClose }) {
             onChange={(e) => set('name', e.target.value)}
             autoFocus
             maxLength={100}
+          />
+        </div>
+
+        <div style={{ marginBottom: 'var(--sp-5)' }}>
+          <label htmlFor="disc-tag">Tag (optional)</label>
+          <input
+            id="disc-tag"
+            className="input input-sm"
+            placeholder="e.g. work, health, learning"
+            value={form.tag}
+            onChange={(e) => set('tag', e.target.value)}
+            maxLength={50}
           />
         </div>
 
@@ -117,9 +135,9 @@ export default function DisciplineCreationSheet({ onClose }) {
           className="btn btn-primary"
           style={{ width: '100%' }}
           onClick={handleSave}
-          disabled={!form.name.trim()}
+          disabled={!form.name.trim() || saving}
         >
-          Add Discipline
+          {saving ? 'Adding...' : 'Add Discipline'}
         </button>
       </div>
     </div>
