@@ -153,6 +153,13 @@ button { cursor: pointer; border: none; outline: none; font-family: var(--font);
 .btn-primary:hover { background: #2693ff; transform: translateY(-1px); box-shadow: 0 4px 20px rgba(10, 132, 255, 0.3); }
 .btn-primary:active { transform: translateY(0); }
 
+.btn-success {
+  background: var(--green);
+  color: #000;
+  border-color: var(--green);
+}
+.btn-success:active { background: var(--green); }
+
 .btn-ghost {
   background: transparent;
   color: var(--blue);

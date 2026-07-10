@@ -33,6 +33,8 @@ export default function DuskSynthesis() {
   const processRollovers = useStore((s) => s.processRollovers);
 
   const [auditTask, setAuditTask] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const tasks = getTasksForDate(duskDate);
   const log = dailyLogs[duskDate] ?? {};
@@ -50,7 +52,15 @@ export default function DuskSynthesis() {
   };
 
   const handleSubmitDay = () => {
-    processRollovers(duskDate);
+    if (submitting || success) return;
+    setSubmitting(true);
+    // Add visual delay for button animation
+    setTimeout(() => {
+      processRollovers(duskDate);
+      setSubmitting(false);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2000);
+    }, 600);
   };
 
   const dateLabel = duskDate === TODAY
@@ -214,8 +224,19 @@ export default function DuskSynthesis() {
               <div className="text-sm text-tertiary" style={{ marginBottom: 'var(--sp-3)' }}>
                 Finalise today's log and carry tasks forward
               </div>
-              <button className="btn btn-primary" onClick={handleSubmitDay} style={{ width: '100%' }}>
-                <Zap size={16} /> Submit Day & Process Rollovers
+              <button 
+                className={`btn ${success ? 'btn-success' : 'btn-primary'}`} 
+                onClick={handleSubmitDay} 
+                style={{ width: '100%', transition: 'all 0.3s ease' }}
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <><RefreshCw size={16} style={{ animation: 'spin 1s linear infinite' }} /> Processing...</>
+                ) : success ? (
+                  <><CheckCircle size={16} /> Day Submitted!</>
+                ) : (
+                  <><Zap size={16} /> Submit Day & Process Rollovers</>
+                )}
               </button>
             </div>
           )}

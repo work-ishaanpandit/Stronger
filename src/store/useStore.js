@@ -135,11 +135,15 @@ const useStore = create(
       syncCoreDisciplineToSupabase: async (cd) => {
         const user = await getUser();
         if (!user) return;
-        await supabase.from('core_disciplines').upsert({
+        const { error } = await supabase.from('core_disciplines').upsert({
           id: cd.id, user_id: user.id, name: cd.name,
           tag: cd.tag, type: cd.type, weight: cd.weight,
           damage: cd.damage, active: cd.active ?? true
         });
+        if (error) {
+          console.error('Core Discipline Sync Error:', error);
+          throw error;
+        }
       },
 
       syncLogToSupabase: async (date, log) => {
@@ -268,13 +272,17 @@ const useStore = create(
       },
 
       // ── Core Disciplines ──────────────────────────────────────────────────────
-      addCoreDiscipline: (discipline) => {
+      addCoreDiscipline: async (discipline) => {
         const id = crypto.randomUUID();
         const fullDiscipline = { ...discipline, id, active: true };
-        set((state) => ({
-          coreDisciplines: [...state.coreDisciplines, fullDiscipline],
-        }));
-        get().syncCoreDisciplineToSupabase(fullDiscipline);
+        try {
+          await get().syncCoreDisciplineToSupabase(fullDiscipline);
+          set((state) => ({
+            coreDisciplines: [...state.coreDisciplines, fullDiscipline],
+          }));
+        } catch (err) {
+          alert('Failed to save Core Discipline: ' + err.message);
+        }
       },
 
       updateCoreDiscipline: (id, updates) => {
