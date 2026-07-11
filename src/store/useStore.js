@@ -448,61 +448,80 @@ const useStore = create(
       },
 
       settleUp: async (amountReceived) => {
-        const { getPendingRemuneration, earnings } = get();
-        const { pendingDays } = getPendingRemuneration();
-        if (pendingDays.length === 0) return;
-
         const user = await getUser();
         if (!user) return;
 
-        let remaining = amountReceived;
-        const updates = [];
+        const { earnings } = get();
+        const today = format(new Date(), 'yyyy-MM-dd');
+
+        // Recalculate pendingDays fresh here to avoid stale closure issues
+        const pendingDays = Object.entries(earnings)
+          .filter(([date, data]) => date < today && (data.R_calc || 0) > (data.amount_received || 0))
+          .sort(([a], [b]) => (a < b ? -1 : 1));
+
+        if (pendingDays.length === 0) return;
+
+        let remaining = Math.max(0, amountReceived || 0);
+        const localUpdates = {};
+        const dbUpdates = [];
 
         for (const [date, data] of pendingDays) {
           if (remaining <= 0) break;
-          
-          const pendingForDay = (data.R_calc || 0) - (data.amount_received || 0);
-          const amountToApply = Math.min(pendingForDay, remaining);
-          
-          const newAmountReceived = (data.amount_received || 0) + amountToApply;
-          const isFullyClaimed = newAmountReceived >= (data.R_calc || 0);
-          
-          updates.push({
+
+          const alreadyReceived = data.amount_received || 0;
+          const dueForDay = (data.R_calc || 0) - alreadyReceived;
+          if (dueForDay <= 0) continue;
+
+          const applying = Math.min(dueForDay, remaining);
+          const newReceived = alreadyReceived + applying;
+          const nowClaimed = newReceived >= (data.R_calc || 0);
+
+          localUpdates[date] = { claimed: nowClaimed, amount_received: newReceived };
+
+          // Include ALL required DB columns with null guards to prevent upsert failures
+          dbUpdates.push({
             date,
             user_id: user.id,
-            r_calc: data.R_calc ?? 0,
-            e_base: data.E_base ?? 0,
-            p_base: data.P_base ?? 0,
-            p_potential: data.P_potential ?? 0,
-            d_tot: data.D_tot ?? 0,
-            m_pow: data.M_pow ?? 1,
-            new_debt: data.newDebt ?? 0,
-            claimed: isFullyClaimed || data.claimed,
-            amount_received: newAmountReceived,
+            r_calc:            data.R_calc        || 0,
+            e_base:            data.E_base        || 0,
+            p_base:            data.P_base        || 0,
+            p_potential:       data.P_potential   || 0,
+            d_tot:             data.D_tot         || 0,
+            m_pow:             data.M_pow         || 1,
+            new_debt:          data.newDebt       || 0,
+            // Legacy columns (also NOT NULL in schema)
+            amount_earned:     data.R_calc        || 0,
+            multiplier_applied:data.M_pow         || 1,
+            total_damage:      data.D_tot         || 0,
+            negative_carryover:data.newDebt       || 0,
+            claimed:           nowClaimed,
+            amount_received:   newReceived,
           });
-          
-          remaining -= amountToApply;
+
+          remaining -= applying;
         }
 
-        if (updates.length > 0) {
-          const { error } = await supabase.from('earnings').upsert(updates);
-          if (!error) {
-            set((state) => {
-              const newEarnings = { ...state.earnings };
-              updates.forEach(u => {
-                newEarnings[u.date] = { 
-                  ...newEarnings[u.date], 
-                  claimed: u.claimed,
-                  amount_received: u.amount_received
-                };
-              });
-              return { earnings: newEarnings };
-            });
-          } else {
-            console.error("Failed to settle up:", error);
-            alert("Failed to settle up: " + error.message);
-          }
+        if (dbUpdates.length === 0) return;
+
+        // Save to DB first — use explicit onConflict so it always UPDATEs the right row
+        const { error } = await supabase
+          .from('earnings')
+          .upsert(dbUpdates, { onConflict: 'date,user_id' });
+
+        if (error) {
+          console.error('settleUp DB error:', error);
+          alert('Failed to save settlement: ' + error.message);
+          return;
         }
+
+        // Only update local state after DB confirms success
+        set((state) => {
+          const newEarnings = { ...state.earnings };
+          Object.entries(localUpdates).forEach(([date, updates]) => {
+            newEarnings[date] = { ...newEarnings[date], ...updates };
+          });
+          return { earnings: newEarnings };
+        });
       },
     }),
     {
