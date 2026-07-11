@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { X, CheckCircle, IndianRupee } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 import useStore from '../store/useStore';
 
 export default function SettleUpModal({ onClose }) {
@@ -7,19 +8,28 @@ export default function SettleUpModal({ onClose }) {
   const settleUp = useStore((s) => s.settleUp);
   const { totalPending, pendingDays } = getPendingRemuneration();
 
-  const [actualAmount, setActualAmount] = useState(totalPending.toString());
+  const [actualAmount, setActualAmount] = useState(totalPending.toFixed(2));
   const [submitting, setSubmitting] = useState(false);
+
+  // Live preview: how the entered amount distributes oldest-first
+  const preview = useMemo(() => {
+    const entered = parseFloat(actualAmount) || 0;
+    let remaining = entered;
+    return pendingDays.map(([date, data]) => {
+      const pendingForDay = (data.R_calc || 0) - (data.amount_received || 0);
+      const applied = Math.min(pendingForDay, Math.max(0, remaining));
+      remaining -= applied;
+      return { date, pendingForDay, applied, fullySettled: applied >= pendingForDay };
+    });
+  }, [actualAmount, pendingDays]);
+
+  const leftOver = Math.max(0, totalPending - (parseFloat(actualAmount) || 0));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (submitting) return;
-
     const amount = parseFloat(actualAmount);
-    if (isNaN(amount) || amount < 0) {
-      alert("Please enter a valid amount.");
-      return;
-    }
-
+    if (isNaN(amount) || amount < 0) { alert('Please enter a valid amount.'); return; }
     setSubmitting(true);
     await settleUp(amount);
     setSubmitting(false);
@@ -28,7 +38,7 @@ export default function SettleUpModal({ onClose }) {
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content" style={{ maxWidth: '400px' }}>
+      <div className="modal-content" style={{ maxWidth: '440px' }}>
         <div className="modal-header">
           <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <CheckCircle size={20} style={{ color: 'var(--green)' }} />
@@ -41,13 +51,13 @@ export default function SettleUpModal({ onClose }) {
 
         <div className="modal-body">
           <div className="text-sm text-secondary" style={{ marginBottom: 'var(--sp-4)' }}>
-            You have <strong>{pendingDays.length}</strong> unclaimed days totaling <strong>₹{totalPending}</strong>.
-            Enter the actual amount you received to mark these days as claimed.
+            <strong>{pendingDays.length}</strong> days pending · Total outstanding:{' '}
+            <strong style={{ color: 'var(--green)' }}>₹{totalPending.toFixed(2)}</strong>
           </div>
 
           <form onSubmit={handleSubmit}>
-            <div className="input-group">
-              <label className="input-label">Actual Amount Received (₹)</label>
+            <div className="input-group" style={{ marginBottom: 'var(--sp-4)' }}>
+              <label className="input-label">Amount Received (₹)</label>
               <div style={{ position: 'relative' }}>
                 <IndianRupee size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
                 <input
@@ -64,7 +74,51 @@ export default function SettleUpModal({ onClose }) {
               </div>
             </div>
 
-            <div className="modal-footer" style={{ marginTop: 'var(--sp-5)' }}>
+            {/* Live day-by-day allocation preview */}
+            {pendingDays.length > 0 && (
+              <div style={{
+                background: 'var(--elevated)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-md)',
+                padding: 'var(--sp-3)',
+                marginBottom: 'var(--sp-4)',
+                maxHeight: 180,
+                overflowY: 'auto',
+              }}>
+                <div className="text-xs text-tertiary" style={{ marginBottom: 'var(--sp-2)', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                  Allocation Preview (Oldest First)
+                </div>
+                {preview.map(({ date, pendingForDay, applied, fullySettled }) => (
+                  <div key={date} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
+                    <span className="text-tertiary">{format(parseISO(date), 'MMM d, yyyy')}</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>Due ₹{pendingForDay.toFixed(2)}</span>
+                    <span style={{ fontWeight: 600, minWidth: 70, textAlign: 'right', color: fullySettled ? 'var(--green)' : applied > 0 ? 'var(--orange)' : 'var(--text-quaternary)' }}>
+                      {applied > 0 ? `−₹${applied.toFixed(2)}` : '—'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Remaining balance summary */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: 'var(--sp-3)', marginBottom: 'var(--sp-4)',
+              borderRadius: 'var(--radius-md)',
+              background: leftOver > 0 ? 'rgba(255,159,10,0.08)' : 'rgba(48,209,88,0.08)',
+              border: `1px solid ${leftOver > 0 ? 'rgba(255,159,10,0.3)' : 'rgba(48,209,88,0.3)'}`,
+            }}>
+              <span className="text-sm font-medium">
+                {leftOver > 0 ? 'Still pending after this settlement' : '✓ Fully settled'}
+              </span>
+              {leftOver > 0 && (
+                <span style={{ fontWeight: 700, color: 'var(--orange)', fontSize: 16 }}>
+                  ₹{leftOver.toFixed(2)}
+                </span>
+              )}
+            </div>
+
+            <div className="modal-footer">
               <button type="button" className="btn btn-ghost" onClick={onClose} disabled={submitting}>
                 Cancel
               </button>

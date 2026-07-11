@@ -179,6 +179,9 @@ const useStore = create(
           total_damage: earningsData.D_tot ?? 0,
           negative_carryover: earningsData.newDebt ?? 0,
           claimed: earningsData.claimed ?? false,
+          // BUG FIX: preserve amount_received — without this, every recalc
+          // upsert was silently resetting partial payments back to 0.
+          amount_received: earningsData.amount_received ?? 0,
         });
       },
 
@@ -327,7 +330,14 @@ const useStore = create(
         const result = calculateDayEarnings(dayTasks, debtCarryover);
 
         set((state) => {
-          const updated = { ...result, claimed: state.earnings[date]?.claimed ?? false };
+          // BUG FIX: preserve amount_received and claimed from existing state
+          // so that recalculation doesn't wipe partial payment data.
+          const existing = state.earnings[date] ?? {};
+          const updated = {
+            ...result,
+            claimed: existing.claimed ?? false,
+            amount_received: existing.amount_received ?? 0,
+          };
           get().syncEarningsToSupabase(date, updated);
           return { earnings: { ...state.earnings, [date]: updated } };
         });
@@ -425,11 +435,15 @@ const useStore = create(
       // ── Pending Remuneration (F2.1) ───────────────────────────────────────────
       getPendingRemuneration: () => {
         const { earnings } = get();
+        const today = format(new Date(), 'yyyy-MM-dd');
         const pendingDays = Object.entries(earnings)
-          .filter(([_, data]) => (data.R_calc || 0) > (data.amount_received || 0))
+          // Only show locked days (T-1 and earlier) with outstanding balance
+          .filter(([date, data]) => date < today && (data.R_calc || 0) > (data.amount_received || 0))
           .sort(([aDate], [bDate]) => (aDate < bDate ? -1 : 1));
         
-        const totalPending = pendingDays.reduce((sum, [_, data]) => sum + ((data.R_calc || 0) - (data.amount_received || 0)), 0);
+        const totalPending = pendingDays.reduce(
+          (sum, [_, data]) => sum + ((data.R_calc || 0) - (data.amount_received || 0)), 0
+        );
         return { totalPending, pendingDays };
       },
 
