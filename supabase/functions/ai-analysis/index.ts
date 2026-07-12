@@ -96,8 +96,21 @@ ONLY return the raw JSON object, no markdown, no backticks.
     });
 
     if (!geminiRes.ok) {
-       const err = await geminiRes.text();
-       return new Response(JSON.stringify({ error: `Gemini API error: ${err}` }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 });
+       const errText = await geminiRes.text();
+       
+       // If model not found, let's fetch the list of available models to see what we can use in 2026
+       if (geminiRes.status === 404) {
+         try {
+           const modelsRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${GEMINI_API_KEY}`);
+           const modelsData = await modelsRes.json();
+           const modelNames = modelsData.models?.map((m: any) => m.name).join(', ') || 'Unknown models';
+           return new Response(JSON.stringify({ error: `Model not found. Available models: ${modelNames}. Original error: ${errText}` }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 });
+         } catch (listErr) {
+           // Ignore list errors
+         }
+       }
+       
+       return new Response(JSON.stringify({ error: `Gemini API error: ${errText}` }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 });
     }
 
     const geminiData = await geminiRes.json();
