@@ -269,10 +269,10 @@ export default function DuskSynthesis() {
           <ReflectionPanel date={duskDate} locked={locked} />
 
           {/* Submit Day (process rollovers) */}
-          {!locked && duskDate === TODAY && (
+          {!locked && (
             <div className="card" style={{ padding: 'var(--sp-5)', textAlign: 'center', marginTop: 'auto' }}>
               <div className="text-sm text-tertiary" style={{ marginBottom: 'var(--sp-3)' }}>
-                Finalise today's log and carry tasks forward
+                Finalise {duskDate === TODAY ? "today's" : "this day's"} log and carry tasks forward
               </div>
               <button 
                 className={`btn ${success ? 'btn-success' : 'btn-primary'}`} 
