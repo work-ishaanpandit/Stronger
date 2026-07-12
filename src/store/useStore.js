@@ -101,6 +101,7 @@ const useStore = create(
             R_calc: e.r_calc, E_base: e.e_base, P_base: e.p_base,
             P_potential: e.p_potential, D_tot: e.d_tot, M_pow: e.m_pow,
             newDebt: e.new_debt, claimed: e.claimed,
+            amount_received: e.amount_received || 0,
           };
         });
 
@@ -178,6 +179,9 @@ const useStore = create(
           total_damage: earningsData.D_tot ?? 0,
           negative_carryover: earningsData.newDebt ?? 0,
           claimed: earningsData.claimed ?? false,
+          // BUG FIX: preserve amount_received — without this, every recalc
+          // upsert was silently resetting partial payments back to 0.
+          amount_received: earningsData.amount_received ?? 0,
         });
       },
 
@@ -354,7 +358,14 @@ const useStore = create(
         const result = calculateDayEarnings(dayTasks, debtCarryover);
 
         set((state) => {
-          const updated = { ...result, claimed: state.earnings[date]?.claimed ?? false };
+          // BUG FIX: preserve amount_received and claimed from existing state
+          // so that recalculation doesn't wipe partial payment data.
+          const existing = state.earnings[date] ?? {};
+          const updated = {
+            ...result,
+            claimed: existing.claimed ?? false,
+            amount_received: existing.amount_received ?? 0,
+          };
           get().syncEarningsToSupabase(date, updated);
           return { earnings: { ...state.earnings, [date]: updated } };
         });
@@ -447,6 +458,106 @@ const useStore = create(
           .upsert({ id: user.id, calendar_token: newToken }, { onConflict: 'id' });
         if (!error) set({ calendarToken: newToken });
         return newToken;
+      },
+
+      // ── Pending Remuneration (F2.1) ───────────────────────────────────────────
+      getPendingRemuneration: () => {
+        const { earnings } = get();
+        const today = format(new Date(), 'yyyy-MM-dd');
+        const pendingDays = Object.entries(earnings)
+          // Only show locked days (T-1 and earlier) with outstanding balance
+          .filter(([date, data]) => {
+            if (date >= today) return false;
+            const rCalc = parseFloat(data.R_calc || 0);
+            const received = parseFloat(data.amount_received || 0);
+            return rCalc > received;
+          })
+          .sort(([aDate], [bDate]) => (aDate < bDate ? -1 : 1));
+        
+        const totalPending = pendingDays.reduce((sum, [_, data]) => {
+          const rCalc = parseFloat(data.R_calc || 0);
+          const received = parseFloat(data.amount_received || 0);
+          return sum + (rCalc - received);
+        }, 0);
+        return { totalPending, pendingDays };
+      },
+
+      settleUp: async (amountReceived) => {
+        const user = await getUser();
+        if (!user) return;
+
+        const { earnings } = get();
+        const today = format(new Date(), 'yyyy-MM-dd');
+
+        // Recalculate pendingDays fresh here to avoid stale closure issues
+        const pendingDays = Object.entries(earnings)
+          .filter(([date, data]) => date < today && (data.R_calc || 0) > (data.amount_received || 0))
+          .sort(([a], [b]) => (a < b ? -1 : 1));
+
+        if (pendingDays.length === 0) return;
+
+        let remaining = Math.max(0, amountReceived || 0);
+        const localUpdates = {};
+        const dbUpdates = [];
+
+        for (const [date, data] of pendingDays) {
+          if (remaining <= 0) break;
+
+          const alreadyReceived = parseFloat(data.amount_received || 0);
+          const rCalc = parseFloat(data.R_calc || 0);
+          const dueForDay = rCalc - alreadyReceived;
+          if (dueForDay <= 0) continue;
+
+          const applying = Math.min(dueForDay, remaining);
+          const newReceived = alreadyReceived + applying;
+          const nowClaimed = newReceived >= rCalc;
+
+          localUpdates[date] = { claimed: nowClaimed, amount_received: newReceived };
+
+          // Include ALL required DB columns with null guards to prevent upsert failures
+          dbUpdates.push({
+            date,
+            user_id: user.id,
+            r_calc:            data.R_calc        || 0,
+            e_base:            data.E_base        || 0,
+            p_base:            data.P_base        || 0,
+            p_potential:       data.P_potential   || 0,
+            d_tot:             data.D_tot         || 0,
+            m_pow:             data.M_pow         || 1,
+            new_debt:          data.newDebt       || 0,
+            // Legacy columns (also NOT NULL in schema)
+            amount_earned:     data.R_calc        || 0,
+            multiplier_applied:data.M_pow         || 1,
+            total_damage:      data.D_tot         || 0,
+            negative_carryover:data.newDebt       || 0,
+            claimed:           nowClaimed,
+            amount_received:   newReceived,
+          });
+
+          remaining -= applying;
+        }
+
+        if (dbUpdates.length === 0) return;
+
+        // Save to DB first — use explicit onConflict so it always UPDATEs the right row
+        const { error } = await supabase
+          .from('earnings')
+          .upsert(dbUpdates, { onConflict: 'date,user_id' });
+
+        if (error) {
+          console.error('settleUp DB error:', error);
+          alert('Failed to save settlement: ' + error.message);
+          return;
+        }
+
+        // Only update local state after DB confirms success
+        set((state) => {
+          const newEarnings = { ...state.earnings };
+          Object.entries(localUpdates).forEach(([date, updates]) => {
+            newEarnings[date] = { ...newEarnings[date], ...updates };
+          });
+          return { earnings: newEarnings };
+        });
       },
     }),
     {
