@@ -306,15 +306,43 @@ const useStore = create(
       },
 
       deleteCoreDiscipline: (id) => {
-        set((state) => ({
-          coreDisciplines: state.coreDisciplines.filter(d => d.id !== id),
-        }));
+        const today = format(new Date(), 'yyyy-MM-dd');
+        set((state) => {
+          const newDisciplines = state.coreDisciplines.filter(d => d.id !== id);
+          
+          const todayTasks = state.tasks[today] ?? [];
+          const tasksToDelete = todayTasks.filter(t => t.isCoreDiscipline && t.coreDisciplineId === id);
+          
+          let newTasksObj = state.tasks;
+          if (tasksToDelete.length > 0) {
+            newTasksObj = {
+              ...state.tasks,
+              [today]: todayTasks.filter(t => !(t.isCoreDiscipline && t.coreDisciplineId === id))
+            };
+            
+            getUser().then(user => {
+              if (user) {
+                const idsToDelete = tasksToDelete.map(t => t.id);
+                supabase.from('tasks').delete().in('id', idsToDelete).eq('user_id', user.id)
+                  .then(({ error }) => { if (error) console.error('Failed to delete orphaned tasks:', error); });
+              }
+            });
+          }
+
+          return {
+            coreDisciplines: newDisciplines,
+            tasks: newTasksObj
+          };
+        });
+
         getUser().then(user => {
           if (user) {
             supabase.from('core_disciplines').delete().eq('id', id).eq('user_id', user.id)
               .then(({ error }) => { if (error) console.error('Failed to delete core discipline in DB:', error); });
           }
         });
+        
+        get().recalcEarnings(today);
       },
 
       // ── Earnings Engine ───────────────────────────────────────────────────────
