@@ -438,12 +438,19 @@ const useStore = create(
         const today = format(new Date(), 'yyyy-MM-dd');
         const pendingDays = Object.entries(earnings)
           // Only show locked days (T-1 and earlier) with outstanding balance
-          .filter(([date, data]) => date < today && (data.R_calc || 0) > (data.amount_received || 0))
+          .filter(([date, data]) => {
+            if (date >= today) return false;
+            const rCalc = parseFloat(data.R_calc || 0);
+            const received = parseFloat(data.amount_received || 0);
+            return rCalc > received;
+          })
           .sort(([aDate], [bDate]) => (aDate < bDate ? -1 : 1));
         
-        const totalPending = pendingDays.reduce(
-          (sum, [_, data]) => sum + ((data.R_calc || 0) - (data.amount_received || 0)), 0
-        );
+        const totalPending = pendingDays.reduce((sum, [_, data]) => {
+          const rCalc = parseFloat(data.R_calc || 0);
+          const received = parseFloat(data.amount_received || 0);
+          return sum + (rCalc - received);
+        }, 0);
         return { totalPending, pendingDays };
       },
 
@@ -468,13 +475,14 @@ const useStore = create(
         for (const [date, data] of pendingDays) {
           if (remaining <= 0) break;
 
-          const alreadyReceived = data.amount_received || 0;
-          const dueForDay = (data.R_calc || 0) - alreadyReceived;
+          const alreadyReceived = parseFloat(data.amount_received || 0);
+          const rCalc = parseFloat(data.R_calc || 0);
+          const dueForDay = rCalc - alreadyReceived;
           if (dueForDay <= 0) continue;
 
           const applying = Math.min(dueForDay, remaining);
           const newReceived = alreadyReceived + applying;
-          const nowClaimed = newReceived >= (data.R_calc || 0);
+          const nowClaimed = newReceived >= rCalc;
 
           localUpdates[date] = { claimed: nowClaimed, amount_received: newReceived };
 
