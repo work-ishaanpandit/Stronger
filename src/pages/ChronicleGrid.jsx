@@ -239,7 +239,11 @@ export default function ChronicleGrid() {
                     <span className="stat-pill-label">Remuneration</span>
                   </div>
                   <div className="stat-pill">
-                    <span className="stat-pill-value text-blue">{Math.round(selectedEarnings.completionRatio * 100)}%</span>
+                    <span className="stat-pill-value text-blue">
+                      {selectedEarnings.P_potential > 0 
+                        ? Math.round((selectedEarnings.P_base / selectedEarnings.P_potential) * 100) 
+                        : 0}%
+                    </span>
                     <span className="stat-pill-label">Completion</span>
                   </div>
                 </div>
@@ -428,10 +432,8 @@ function AnalyticsView({ earningsHistory, tasksHistory, coreDisciplines }) {
         </select>
       </div>
 
-      {/* F2.2: AI Insight Card (Only for Weekly/Monthly) */}
-      {(timeView === 'weekly' || timeView === 'monthly') && (
-        <AIInsightCard timeView={timeView} />
-      )}
+      {/* F2.2: AI Insight Card */}
+      <AIInsightCard timeView={timeView} />
 
       {/* Multi-Bar Goal Consistency Chart */}
       <div className="card" style={{ padding: 'var(--sp-5)' }}>

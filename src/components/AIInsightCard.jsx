@@ -63,7 +63,7 @@ export default function AIInsightCard({ timeView = 'weekly' }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--sp-4)' }}>
         <h3 className="text-sm font-semibold text-purple" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Sparkles size={16} />
-          {timeView === 'weekly' ? '7-Day AI Synthesis' : '30-Day AI Synthesis'}
+          {timeView === 'daily' ? '1-Day AI Synthesis' : timeView === 'weekly' ? '7-Day AI Synthesis' : '30-Day AI Synthesis'}
         </h3>
         <button 
           className="btn btn-ghost btn-sm btn-icon" 
