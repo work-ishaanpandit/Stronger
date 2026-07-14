@@ -203,15 +203,57 @@ const useStore = create(
         const { dailyLogs, coreDisciplines, tasks, updateDailyLog, addTask } = get();
         if (!dailyLogs[date]) updateDailyLog(date, { createdAt: new Date().toISOString() });
 
-        // Inject only disciplines not already present
         const existingTasks = tasks[date] ?? [];
+
+        // 1. Deduplicate existing core discipline tasks (keep first, remove others)
+        const seenCoreIds = new Set();
+        const duplicatesToDelete = [];
+        const uniqueTasks = [];
+
+        existingTasks.forEach((t) => {
+          if (t.isCoreDiscipline && t.coreDisciplineId) {
+            if (seenCoreIds.has(t.coreDisciplineId)) {
+              duplicatesToDelete.push(t);
+            } else {
+              seenCoreIds.add(t.coreDisciplineId);
+              uniqueTasks.push(t);
+            }
+          } else {
+            uniqueTasks.push(t);
+          }
+        });
+
+        if (duplicatesToDelete.length > 0) {
+          const idsToDelete = duplicatesToDelete.map((t) => t.id);
+          set((state) => ({
+            tasks: {
+              ...state.tasks,
+              [date]: uniqueTasks,
+            },
+          }));
+          getUser().then((user) => {
+            if (user) {
+              supabase
+                .from('tasks')
+                .delete()
+                .in('id', idsToDelete)
+                .eq('user_id', user.id)
+                .then(() => {
+                  get().recalcEarnings(date);
+                })
+                .catch((err) => console.error('Failed to delete duplicates in DB:', err));
+            }
+          });
+        }
+
+        // 2. Inject only disciplines not already present
         const injectedIds = new Set(
-          existingTasks.filter(t => t.isCoreDiscipline).map(t => t.coreDisciplineId)
+          uniqueTasks.filter((t) => t.isCoreDiscipline).map((t) => t.coreDisciplineId)
         );
-        const missing = coreDisciplines.filter(cd => cd.active !== false && !injectedIds.has(cd.id));
+        const missing = coreDisciplines.filter((cd) => cd.active !== false && !injectedIds.has(cd.id));
         if (missing.length > 0) {
           const injected = injectCoreDisciplines(missing, date);
-          injected.forEach(t => addTask(date, t));
+          injected.forEach((t) => addTask(date, t));
         }
       },
 

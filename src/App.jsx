@@ -32,6 +32,7 @@ export default function App() {
     });
 
     // 3. Set up Realtime Subscription for database updates
+    let debounceTimeout = null;
     const channel = supabase
       .channel('schema-db-changes')
       .on(
@@ -39,7 +40,10 @@ export default function App() {
         { event: '*', schema: 'public' },
         (payload) => {
           console.log('Realtime database sync trigger received:', payload.table);
-          fetchFromSupabase();
+          if (debounceTimeout) clearTimeout(debounceTimeout);
+          debounceTimeout = setTimeout(() => {
+            fetchFromSupabase();
+          }, 1000); // 1-second debounce to batch multiple updates
         }
       )
       .subscribe();
@@ -47,6 +51,7 @@ export default function App() {
     return () => {
       subscription.unsubscribe();
       supabase.removeChannel(channel);
+      if (debounceTimeout) clearTimeout(debounceTimeout);
     };
   }, []);
 
