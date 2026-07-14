@@ -49,7 +49,8 @@ export function calculateDayEarnings(tasks = [], debtCarryover = 0) {
   }, 1.0);
 
   // ─── Step 5: Final Payout ───────────────────────────────────────────────
-  const rawPayout = S_net * M_pow - debtCarryover;
+  // Ignore debtCarryover so daily calculations are fully independent
+  const rawPayout = S_net * M_pow;
   const R_calc = rawPayout;
 
   // newDebt is now 0 because negative R_calc directly reduces the global pending balance

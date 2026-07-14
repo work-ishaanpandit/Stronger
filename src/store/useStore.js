@@ -107,6 +107,13 @@ const useStore = create(
 
         const calendarToken = profileRes.data?.calendar_token ?? null;
         set({ dailyLogs, tasks, coreDisciplines: cdRes.data || [], earnings, calendarToken });
+
+        // Migrate last 7 days to the independent negative model
+        const today = new Date();
+        for (let i = 0; i < 7; i++) {
+          const date = format(addDays(today, -i), 'yyyy-MM-dd');
+          get().recalcEarnings(date);
+        }
       },
 
       // ── Supabase: Push individual records ───────────────────────────────────
@@ -393,16 +400,21 @@ const useStore = create(
 
       // ── Earnings Engine ───────────────────────────────────────────────────────
       recalcEarnings: (date) => {
-        const { tasks, earnings } = get();
+        const { tasks } = get();
         const dayTasks = tasks[date] ?? [];
-        const prevDate = format(addDays(new Date(date + 'T00:00:00'), -1), 'yyyy-MM-dd');
-        const debtCarryover = earnings[prevDate]?.newDebt ?? 0;
-        const result = calculateDayEarnings(dayTasks, debtCarryover);
+        const result = calculateDayEarnings(dayTasks, 0); // Ignore carryover debt in daily calculations
 
         set((state) => {
-          // BUG FIX: preserve amount_received and claimed from existing state
-          // so that recalculation doesn't wipe partial payment data.
           const existing = state.earnings[date] ?? {};
+          // Optimization: skip updating if values are already correct
+          if (
+            existing.R_calc === result.R_calc &&
+            existing.D_tot === result.D_tot &&
+            existing.E_base === result.E_base &&
+            existing.M_pow === result.M_pow
+          ) {
+            return {};
+          }
           const updated = {
             ...result,
             claimed: existing.claimed ?? false,
