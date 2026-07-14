@@ -8,20 +8,31 @@ export default function SettleUpModal({ onClose }) {
   const settleUp = useStore((s) => s.settleUp);
   const { totalPending, pendingDays } = getPendingRemuneration();
 
-  const [actualAmount, setActualAmount] = useState(totalPending.toFixed(2));
+  const [actualAmount, setActualAmount] = useState(Math.max(0, totalPending).toFixed(2));
   const [submitting, setSubmitting] = useState(false);
 
-  // Live preview: how the entered amount distributes oldest-first
+  // Live preview: how the entered amount distributes
   const preview = useMemo(() => {
     const entered = parseFloat(actualAmount) || 0;
+    const settlingAll = Math.abs(entered - totalPending) < 0.01;
     let remaining = entered;
+    
     return pendingDays.map(([date, data]) => {
       const pendingForDay = (data.R_calc || 0) - (data.amount_received || 0);
+      
+      if (settlingAll) {
+        return { date, pendingForDay, applied: pendingForDay, fullySettled: true };
+      }
+      
+      if (pendingForDay <= 0) {
+        return { date, pendingForDay, applied: 0, fullySettled: false };
+      }
+      
       const applied = Math.min(pendingForDay, Math.max(0, remaining));
       remaining -= applied;
       return { date, pendingForDay, applied, fullySettled: applied >= pendingForDay };
     });
-  }, [actualAmount, pendingDays]);
+  }, [actualAmount, pendingDays, totalPending]);
 
   const leftOver = Math.max(0, totalPending - (parseFloat(actualAmount) || 0));
 

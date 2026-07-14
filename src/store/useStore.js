@@ -465,12 +465,12 @@ const useStore = create(
         const { earnings } = get();
         const today = format(new Date(), 'yyyy-MM-dd');
         const pendingDays = Object.entries(earnings)
-          // Only show locked days (T-1 and earlier) with outstanding balance
+          // Include both positive and negative unpaid balances
           .filter(([date, data]) => {
             if (date >= today) return false;
             const rCalc = parseFloat(data.R_calc || 0);
             const received = parseFloat(data.amount_received || 0);
-            return rCalc > received;
+            return Math.abs(rCalc - received) > 0.01;
           })
           .sort(([aDate], [bDate]) => (aDate < bDate ? -1 : 1));
         
@@ -489,28 +489,39 @@ const useStore = create(
         const { earnings } = get();
         const today = format(new Date(), 'yyyy-MM-dd');
 
+        const { totalPending, pendingDays: currentPendingDays } = get().getPendingRemuneration();
         // Recalculate pendingDays fresh here to avoid stale closure issues
-        const pendingDays = Object.entries(earnings)
-          .filter(([date, data]) => date < today && (data.R_calc || 0) > (data.amount_received || 0))
-          .sort(([a], [b]) => (a < b ? -1 : 1));
+        const pendingDays = currentPendingDays;
 
         if (pendingDays.length === 0) return;
 
         let remaining = Math.max(0, amountReceived || 0);
+        const settlingAll = Math.abs(remaining - totalPending) < 0.01;
+        
         const localUpdates = {};
         const dbUpdates = [];
 
         for (const [date, data] of pendingDays) {
-          if (remaining <= 0) break;
-
           const alreadyReceived = parseFloat(data.amount_received || 0);
           const rCalc = parseFloat(data.R_calc || 0);
           const dueForDay = rCalc - alreadyReceived;
-          if (dueForDay <= 0) continue;
+          
+          let applying = 0;
+          let nowClaimed = false;
+          let newReceived = alreadyReceived;
 
-          const applying = Math.min(dueForDay, remaining);
-          const newReceived = alreadyReceived + applying;
-          const nowClaimed = newReceived >= rCalc;
+          if (settlingAll) {
+            applying = dueForDay;
+            newReceived = rCalc;
+            nowClaimed = true;
+          } else {
+            // Partial settlement: only apply to positive days
+            if (dueForDay <= 0 || remaining <= 0) continue;
+            applying = Math.min(dueForDay, remaining);
+            newReceived = alreadyReceived + applying;
+            nowClaimed = Math.abs(newReceived - rCalc) < 0.01;
+            remaining -= applying;
+          }
 
           localUpdates[date] = { claimed: nowClaimed, amount_received: newReceived };
 
@@ -533,8 +544,6 @@ const useStore = create(
             claimed:           nowClaimed,
             amount_received:   newReceived,
           });
-
-          remaining -= applying;
         }
 
         if (dbUpdates.length === 0) return;

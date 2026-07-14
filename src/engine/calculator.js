@@ -50,10 +50,10 @@ export function calculateDayEarnings(tasks = [], debtCarryover = 0) {
 
   // ─── Step 5: Final Payout ───────────────────────────────────────────────
   const rawPayout = S_net * M_pow - debtCarryover;
-  const R_calc = Math.max(0, rawPayout);
+  const R_calc = rawPayout;
 
-  // Negative carryover debt for next day (if S_net went below zero after power)
-  const newDebt = rawPayout < 0 ? Math.abs(rawPayout) : 0;
+  // newDebt is now 0 because negative R_calc directly reduces the global pending balance
+  const newDebt = 0;
 
   return {
     P_base: round2(P_base),
