@@ -302,11 +302,21 @@ function EarningsBreakdown({ earnings }) {
           </span>
           <span className="text-sm text-tertiary">today</span>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sp-3)' }}>
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: earnings.debtCarryover > 0 ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', 
+          gap: 'var(--sp-3)' 
+        }}>
           <div className="stat-pill">
             <span className="stat-pill-value text-blue">₹{earnings.E_base.toFixed(0)}</span>
             <span className="stat-pill-label">Base</span>
           </div>
+          {earnings.debtCarryover > 0 && (
+            <div className="stat-pill">
+              <span className="stat-pill-value text-red">-₹{earnings.debtCarryover.toFixed(0)}</span>
+              <span className="stat-pill-label">Debt Carry</span>
+            </div>
+          )}
           <div className="stat-pill">
             <span className="stat-pill-value text-red">-₹{earnings.D_tot.toFixed(0)}</span>
             <span className="stat-pill-label">Damage</span>

@@ -249,6 +249,9 @@ export default function DuskSynthesis() {
                   <div style={{ textAlign: 'right', fontSize: 13, color: 'var(--text-tertiary)', lineHeight: 1.8 }}>
                     <div>Base ₹{todayEarnings.E_base.toFixed(0)}</div>
                     <div>Damage -₹{todayEarnings.D_tot.toFixed(0)}</div>
+                    {todayEarnings.debtCarryover > 0 && (
+                      <div style={{ color: 'var(--red)' }}>Debt Carryover -₹{todayEarnings.debtCarryover.toFixed(0)}</div>
+                    )}
                     <div>Power {todayEarnings.M_pow.toFixed(2)}×</div>
                   </div>
                 </div>
