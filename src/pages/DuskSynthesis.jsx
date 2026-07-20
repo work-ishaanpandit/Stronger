@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format, addDays, subDays, parseISO } from 'date-fns';
 import { ChevronLeft, ChevronRight, Lock, Inbox, CheckCircle, Activity, XCircle, FastForward, Calendar, Zap, Rocket, Skull, Leaf, RefreshCw, ArrowUpDown, Star } from 'lucide-react';
 import useStore from '../store/useStore';
@@ -56,10 +56,15 @@ export default function DuskSynthesis() {
   const earnings = useStore((s) => s.earnings);
   const processRollovers = useStore((s) => s.processRollovers);
 
+  const initDay = useStore((s) => s.initDay);
+
   const [auditTask, setAuditTask] = useState(null);
   const [sortModeIdx, setSortModeIdx] = useState(0); // F2: sort mode index
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  // When navigating to a future date, trigger initDay so postponed tasks appear
+  useEffect(() => { initDay(duskDate); }, [duskDate]);
 
   const tasks = getTasksForDate(duskDate);
   const log = dailyLogs[duskDate] ?? {};

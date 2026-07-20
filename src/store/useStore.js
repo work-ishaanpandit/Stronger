@@ -186,8 +186,6 @@ const useStore = create(
           total_damage: earningsData.D_tot ?? 0,
           negative_carryover: earningsData.newDebt ?? 0,
           claimed: earningsData.claimed ?? false,
-          // BUG FIX: preserve amount_received — without this, every recalc
-          // upsert was silently resetting partial payments back to 0.
           amount_received: earningsData.amount_received ?? 0,
         });
       },
@@ -262,6 +260,32 @@ const useStore = create(
           const injected = injectCoreDisciplines(missing, date);
           injected.forEach((t) => addTask(date, t));
         }
+
+        // 3. Inject postponed_later tasks from all past days targeting this date
+        const existingTaskKeys = new Set(uniqueTasks.map((t) => t.name + '|' + (t.originalDate ?? '')));
+        const allTasks = get().tasks;
+        Object.entries(allTasks).forEach(([pastDate, pastTasks]) => {
+          if (pastDate >= date) return; // only look at past days
+          (pastTasks ?? []).forEach((t) => {
+            if (t.status === 'postponed_later' && t.postponedToDate === date) {
+              const key = t.name + '|' + (t.originalDate ?? pastDate);
+              if (!existingTaskKeys.has(key)) {
+                existingTaskKeys.add(key);
+                addTask(date, {
+                  ...t,
+                  id: crypto.randomUUID(),
+                  logDate: date,
+                  status: 'missed',
+                  delayCount: (t.delayCount ?? 0) + 1,
+                  rolloverType: 'postponed_rollover',
+                  rolloverBadge: 'red',
+                  postponedToDate: null,
+                  originalDate: t.originalDate ?? pastDate,
+                });
+              }
+            }
+          });
+        });
       },
 
       // ── Task CRUD ────────────────────────────────────────────────────────────
