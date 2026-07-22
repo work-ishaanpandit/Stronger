@@ -652,7 +652,7 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
 
 .task-item.locked {
   opacity: 0.45;
-  pointer-events: none;
+  cursor: pointer;
 }
 
 .task-check {
