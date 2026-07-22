@@ -91,7 +91,7 @@ const useStore = create(
             timeBlockStart: t.time_block_start, timeBlockEnd: t.time_block_end,
             hasBonus: t.has_bonus, delayCount: t.delay_count,
             isCoreDiscipline: t.is_core_discipline, coreDisciplineId: t.core_discipline_id,
-            auditNotes: t.audit_notes,
+            auditNotes: t.audit_notes, postponedToDate: t.postponed_to_date || null,
           });
         });
 
@@ -132,6 +132,7 @@ const useStore = create(
             time_block_start: task.timeBlockStart, time_block_end: task.timeBlockEnd,
             has_bonus: task.hasBonus || false, is_core_discipline: task.isCoreDiscipline || false,
             core_discipline_id: task.coreDisciplineId || null, audit_notes: task.auditNotes || '',
+            postponed_to_date: task.postponedToDate || null,
           });
           if (error) {
             console.error('Upsert task error:', error);
@@ -282,6 +283,38 @@ const useStore = create(
                   postponedToDate: null,
                   originalDate: t.originalDate ?? pastDate,
                 });
+              }
+            } else if (!t.isCoreDiscipline && t.recurrence && t.recurrence !== 'none') {
+              let shouldRecur = false;
+              if (t.recurrence === 'daily' && pastDate === format(addDays(new Date(date + 'T00:00:00'), -1), 'yyyy-MM-dd')) {
+                shouldRecur = true;
+              } else if (t.recurrence === 'weekly' && pastDate === format(addDays(new Date(date + 'T00:00:00'), -7), 'yyyy-MM-dd')) {
+                shouldRecur = true;
+              } else if (t.recurrence === 'monthly') {
+                const oneMonthAgo = new Date(date + 'T00:00:00');
+                oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+                if (pastDate === format(oneMonthAgo, 'yyyy-MM-dd')) {
+                  shouldRecur = true;
+                }
+              }
+
+              if (shouldRecur) {
+                const key = t.name + '|' + date;
+                if (!existingTaskKeys.has(key)) {
+                  existingTaskKeys.add(key);
+                  addTask(date, {
+                    ...t,
+                    id: crypto.randomUUID(),
+                    logDate: date,
+                    status: 'missed',
+                    completionPercentage: 0,
+                    delayCount: 0,
+                    rolloverType: 'recurring',
+                    rolloverBadge: 'blue',
+                    postponedToDate: null,
+                    originalDate: date, // reset originalDate for the new recurrence cycle
+                  });
+                }
               }
             }
           });
