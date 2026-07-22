@@ -68,6 +68,9 @@ Task Data summary:
 - Missed tasks: ${tasks.filter(t => t.status === 'missed').length}
 - Key themes (tags): ${[...new Set(tasks.map(t => t.tag).filter(Boolean))].join(', ')}
 
+Notable Task Audit Notes:
+${tasks.filter(t => t.audit_notes?.trim()).map(t => `- [${t.log_date}] ${t.name}: ${t.audit_notes}`).join('\n')}
+
 Journal Highlights (Last ${days} days):
 ${logs.map(l => `- [${l.date}] Highlight: ${l.highlight || 'None'}, Reflection: ${l.reflection || 'None'}, Epiphany: ${l.epiphany || 'None'}`).join('\n')}
 

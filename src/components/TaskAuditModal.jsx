@@ -70,78 +70,82 @@ export default function TaskAuditModal({ task, date, locked, onClose }) {
           </button>
         </div>
 
-        {locked ? (
-          <div className="locked-banner">
+        {locked && (
+          <div className="locked-banner" style={{ marginBottom: 'var(--sp-4)' }}>
             <Lock size={16} />
             This day is read-only (older than T-1)
           </div>
-        ) : (
-          <>
-            {/* Status */}
-            <div style={{ marginBottom: 'var(--sp-4)' }}>
-              <label htmlFor="task-status">Status</label>
-              <select
-                id="task-status"
-                className="input"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-              >
-                {STATUS_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
+        )}
+
+        {/* Status */}
+        <div style={{ marginBottom: 'var(--sp-4)' }}>
+          <label htmlFor="task-status">Status</label>
+          <select
+            id="task-status"
+            className="input"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            disabled={locked}
+          >
+            {STATUS_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Completion Slider (Partly Done only) */}
+        {status === 'partly_done' && (
+          <div style={{ marginBottom: 'var(--sp-4)' }}>
+            <label>Completion: {completion}%</label>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={completion}
+              onChange={(e) => setCompletion(Number(e.target.value))}
+              disabled={locked}
+            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+              <span className="text-xs text-tertiary">0%</span>
+              <span className="text-xs text-tertiary">100%</span>
             </div>
+          </div>
+        )}
 
-            {/* Completion Slider (Partly Done only) */}
-            {status === 'partly_done' && (
-              <div style={{ marginBottom: 'var(--sp-4)' }}>
-                <label>Completion: {completion}%</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={completion}
-                  onChange={(e) => setCompletion(Number(e.target.value))}
-                />
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-                  <span className="text-xs text-tertiary">0%</span>
-                  <span className="text-xs text-tertiary">100%</span>
-                </div>
-              </div>
-            )}
+        {/* Date Picker (Postponed Later only) */}
+        {status === 'postponed_later' && (
+          <div style={{ marginBottom: 'var(--sp-4)' }}>
+            <label htmlFor="postpone-date">Postpone To</label>
+            <input
+              id="postpone-date"
+              type="date"
+              className="input input-sm"
+              value={postponeDate}
+              onChange={(e) => setPostponeDate(e.target.value)}
+              disabled={locked}
+            />
+          </div>
+        )}
 
-            {/* Date Picker (Postponed Later only) */}
-            {status === 'postponed_later' && (
-              <div style={{ marginBottom: 'var(--sp-4)' }}>
-                <label htmlFor="postpone-date">Postpone To</label>
-                <input
-                  id="postpone-date"
-                  type="date"
-                  className="input input-sm"
-                  value={postponeDate}
-                  onChange={(e) => setPostponeDate(e.target.value)}
-                />
-              </div>
-            )}
+        {/* Notes */}
+        <div style={{ marginBottom: 'var(--sp-5)' }}>
+          <label htmlFor="audit-notes">Audit Notes</label>
+          <textarea
+            id="audit-notes"
+            className="input"
+            placeholder={locked ? "No notes recorded." : "Obstacles, context, lessons…"}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={3}
+            disabled={locked}
+          />
+        </div>
 
-            {/* Notes */}
-            <div style={{ marginBottom: 'var(--sp-5)' }}>
-              <label htmlFor="audit-notes">Audit Notes</label>
-              <textarea
-                id="audit-notes"
-                className="input"
-                placeholder="Obstacles, context, lessons…"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={3}
-              />
-            </div>
-
-            <div style={{ display: 'flex', gap: 'var(--sp-3)' }}>
-              <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ flex: 1 }}>Cancel</button>
-              <button className="btn btn-primary btn-sm" onClick={handleSave} style={{ flex: 2 }}>Save</button>
-            </div>
-          </>
+        {!locked && (
+          <div style={{ display: 'flex', gap: 'var(--sp-3)' }}>
+            <button className="btn btn-ghost btn-sm" onClick={onClose} style={{ flex: 1 }}>Cancel</button>
+            <button className="btn btn-primary btn-sm" onClick={handleSave} style={{ flex: 2 }}>Save</button>
+          </div>
         )}
 
         {/* Task metadata */}

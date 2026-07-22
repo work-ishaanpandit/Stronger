@@ -206,10 +206,10 @@ export default function DuskSynthesis() {
                     <div
                       key={task.id}
                       className={`task-item type-${task.type} ${locked ? 'locked' : ''}`}
-                      onClick={() => !locked && setAuditTask(task)}
-                      role={locked ? undefined : 'button'}
-                      tabIndex={locked ? -1 : 0}
-                      onKeyDown={(e) => !locked && e.key === 'Enter' && setAuditTask(task)}
+                      onClick={() => setAuditTask(task)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => e.key === 'Enter' && setAuditTask(task)}
                     >
                       <div className="task-check" style={{ borderColor: s.color, background: `${s.color}22` }}>
                         <StatusIcon size={14} color={s.color} />
