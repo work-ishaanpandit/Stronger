@@ -281,6 +281,7 @@ const useStore = create(
                   rolloverType: 'postponed_rollover',
                   rolloverBadge: 'red',
                   postponedToDate: null,
+                  auditNotes: '', // Fresh notes for the new day
                   originalDate: t.originalDate ?? pastDate,
                 });
               }
@@ -312,6 +313,7 @@ const useStore = create(
                     rolloverType: 'recurring',
                     rolloverBadge: 'blue',
                     postponedToDate: null,
+                    auditNotes: '', // Fresh notes for the new recurrence cycle
                     originalDate: date, // reset originalDate for the new recurrence cycle
                   });
                 }

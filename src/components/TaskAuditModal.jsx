@@ -20,7 +20,7 @@ export default function TaskAuditModal({ task, date, locked, onClose }) {
   );
   const [notes, setNotes] = useState(task.auditNotes ?? '');
   const [postponeDate, setPostponeDate] = useState(
-    task.postponedToDate ?? format(new Date(), 'yyyy-MM-dd')
+    task.postponedToDate ?? ''
   );
 
   const handleSave = () => {
