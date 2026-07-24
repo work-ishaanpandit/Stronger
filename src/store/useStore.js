@@ -263,7 +263,11 @@ const useStore = create(
         }
 
         // 3. Inject postponed_later tasks from all past days targeting this date
-        const existingTaskKeys = new Set(uniqueTasks.map((t) => t.name + '|' + (t.originalDate ?? '')));
+        // Include cancelled tasks in the key set so they act as tombstones blocking re-injection
+        const allExistingForDate = tasks[date] ?? [];
+        const existingTaskKeys = new Set(allExistingForDate.map((t) => t.name + '|' + (t.originalDate ?? '')));
+        // Also key by name+date to block recurring injection specifically
+        allExistingForDate.filter(t => t.status === 'cancelled').forEach(t => existingTaskKeys.add(t.name + '|' + date));
         const allTasks = get().tasks;
         Object.entries(allTasks).forEach(([pastDate, pastTasks]) => {
           if (pastDate >= date) return; // only look at past days
@@ -324,7 +328,7 @@ const useStore = create(
       },
 
       // ── Task CRUD ────────────────────────────────────────────────────────────
-      getTasksForDate: (date) => get().tasks[date] ?? [],
+      getTasksForDate: (date) => (get().tasks[date] ?? []).filter(t => t.status !== 'cancelled'),
 
       addTask: (date, task) => {
         const id = task.id ?? crypto.randomUUID();
@@ -357,30 +361,63 @@ const useStore = create(
       },
 
       deleteTask: async (date, taskId) => {
-        // Capture task before deletion to check calendarSync
         const taskToDelete = (get().tasks[date] ?? []).find(t => t.id === taskId);
+        const isRecurring = taskToDelete?.recurrence && taskToDelete.recurrence !== 'none';
 
-        set((state) => ({
-          tasks: {
-            ...state.tasks,
-            [date]: (state.tasks[date] ?? []).filter(t => t.id !== taskId),
-          },
-        }));
-
-        if (taskToDelete?.calendarSync) removeFromICSServer(taskId);
-
-        try {
-          const user = await getUser();
-          if (user) {
-            const { error } = await supabase.from('tasks').delete().eq('id', taskId).eq('user_id', user.id);
-            if (error) {
-              console.error('Failed to delete task:', error);
-              alert('DB Delete Error: ' + error.message);
+        if (isRecurring) {
+          // Soft-delete: mark as cancelled so it acts as a tombstone for initDay injection checks.
+          // This prevents the task from being re-injected on future refreshes.
+          const cancelled = { ...taskToDelete, status: 'cancelled' };
+          set((state) => ({
+            tasks: {
+              ...state.tasks,
+              // Keep the cancelled record in state so existingTaskKeys picks it up, but UI filters it out
+              [date]: (state.tasks[date] ?? []).map(t => t.id === taskId ? cancelled : t),
+            },
+          }));
+          try {
+            const user = await getUser();
+            if (user) {
+              const { error } = await supabase.from('tasks').upsert({
+                id: taskToDelete.id, user_id: user.id, log_date: taskToDelete.logDate,
+                name: taskToDelete.name, tag: taskToDelete.tag, type: taskToDelete.type,
+                weight: taskToDelete.weight, damage: taskToDelete.damage,
+                recurrence: taskToDelete.recurrence,
+                status: 'cancelled',
+                completion_percentage: 0,
+                original_date: taskToDelete.originalDate || taskToDelete.logDate,
+                delay_count: taskToDelete.delayCount || 0,
+                is_core_discipline: false,
+                audit_notes: taskToDelete.auditNotes || '',
+                postponed_to_date: null,
+              });
+              if (error) console.error('Failed to soft-delete task:', error);
             }
+          } catch (err) {
+            console.error('Soft-delete exception:', err);
           }
-        } catch (err) {
-          console.error('Delete exception:', err);
-          alert('Delete exception: ' + err.message);
+        } else {
+          // Hard-delete non-recurring tasks
+          set((state) => ({
+            tasks: {
+              ...state.tasks,
+              [date]: (state.tasks[date] ?? []).filter(t => t.id !== taskId),
+            },
+          }));
+          if (taskToDelete?.calendarSync) removeFromICSServer(taskId);
+          try {
+            const user = await getUser();
+            if (user) {
+              const { error } = await supabase.from('tasks').delete().eq('id', taskId).eq('user_id', user.id);
+              if (error) {
+                console.error('Failed to delete task:', error);
+                alert('DB Delete Error: ' + error.message);
+              }
+            }
+          } catch (err) {
+            console.error('Delete exception:', err);
+            alert('Delete exception: ' + err.message);
+          }
         }
 
         get().recalcEarnings(date);
