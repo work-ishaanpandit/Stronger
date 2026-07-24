@@ -16,9 +16,12 @@
  * @returns {Object} Detailed breakdown of the calculation
  */
 export function calculateDayEarnings(tasks = [], debtCarryover = 0) {
-  const normalTasks = tasks.filter((t) => t.type === 'normal');
-  const powerTasks = tasks.filter((t) => t.type === 'power');
-  const kickassTasks = tasks.filter((t) => t.type === 'kickass');
+  // Filter out soft-deleted 'cancelled' tasks so they don't affect the math
+  const activeTasks = tasks.filter((t) => t.status !== 'cancelled');
+  
+  const normalTasks = activeTasks.filter((t) => t.type === 'normal');
+  const powerTasks = activeTasks.filter((t) => t.type === 'power');
+  const kickassTasks = activeTasks.filter((t) => t.type === 'kickass');
 
   // ─── Step 1: Base Points ────────────────────────────────────────────────
   const P_base = normalTasks.reduce((sum, t) => {
