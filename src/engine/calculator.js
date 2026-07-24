@@ -16,8 +16,13 @@
  * @returns {Object} Detailed breakdown of the calculation
  */
 export function calculateDayEarnings(tasks = [], debtCarryover = 0) {
-  // Filter out soft-deleted 'cancelled' tasks so they don't affect the math
-  const activeTasks = tasks.filter((t) => t.status !== 'cancelled');
+  // Filter out soft-deleted 'cancelled' tasks and 'postponed' tasks.
+  // Postponed tasks shouldn't penalize today's denominator because they are moved to the future.
+  const activeTasks = tasks.filter((t) => 
+    t.status !== 'cancelled' && 
+    t.status !== 'postponed_tomorrow' && 
+    t.status !== 'postponed_later'
+  );
   
   const normalTasks = activeTasks.filter((t) => t.type === 'normal');
   const powerTasks = activeTasks.filter((t) => t.type === 'power');
