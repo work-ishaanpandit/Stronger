@@ -289,7 +289,8 @@ const useStore = create(
                   originalDate: t.originalDate ?? pastDate,
                 });
               }
-            } else if (!t.isCoreDiscipline && t.recurrence && t.recurrence !== 'none') {
+            } else if (!t.isCoreDiscipline && t.recurrence && t.recurrence !== 'none' && t.status !== 'cancelled') {
+              // Skip cancelled tasks — they are tombstones, not sources for new recurrences
               let shouldRecur = false;
               if (t.recurrence === 'daily' && pastDate === format(addDays(new Date(date + 'T00:00:00'), -1), 'yyyy-MM-dd')) {
                 shouldRecur = true;
@@ -378,19 +379,12 @@ const useStore = create(
           try {
             const user = await getUser();
             if (user) {
-              const { error } = await supabase.from('tasks').upsert({
-                id: taskToDelete.id, user_id: user.id, log_date: taskToDelete.logDate,
-                name: taskToDelete.name, tag: taskToDelete.tag, type: taskToDelete.type,
-                weight: taskToDelete.weight, damage: taskToDelete.damage,
-                recurrence: taskToDelete.recurrence,
-                status: 'cancelled',
-                completion_percentage: 0,
-                original_date: taskToDelete.originalDate || taskToDelete.logDate,
-                delay_count: taskToDelete.delayCount || 0,
-                is_core_discipline: false,
-                audit_notes: taskToDelete.auditNotes || '',
-                postponed_to_date: null,
-              });
+              // Simple UPDATE — only flip the status, leave all other columns intact
+              const { error } = await supabase
+                .from('tasks')
+                .update({ status: 'cancelled' })
+                .eq('id', taskToDelete.id)
+                .eq('user_id', user.id);
               if (error) console.error('Failed to soft-delete task:', error);
             }
           } catch (err) {
