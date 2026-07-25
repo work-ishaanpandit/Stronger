@@ -9,7 +9,7 @@ const TASK_TYPES = [
   { id: 'uncritical', icon: Leaf,   name: 'Uncritical', desc: 'Qualitative only', color: 'uncritical' },
 ];
 
-const RECURRENCE = ['none', 'daily', 'weekly', 'monthly'];
+const RECURRENCE = ['none', 'daily', 'weekdays', 'weekly', 'monthly'];
 
 const DEFAULT_TASK = {
   name: '',

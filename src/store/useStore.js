@@ -105,8 +105,18 @@ const useStore = create(
           };
         });
 
+        // Merge locally injected tasks that might not have reached Supabase yet
+        const existingTasks = get().tasks;
+        const mergedTasks = { ...tasks };
+        Object.entries(existingTasks).forEach(([d, dTasks]) => {
+          const newlyAdded = (dTasks ?? []).filter(dt => !(tasks[d] ?? []).some(st => st.id === dt.id));
+          if (newlyAdded.length > 0) {
+            mergedTasks[d] = [...(mergedTasks[d] ?? []), ...newlyAdded];
+          }
+        });
+
         const calendarToken = profileRes.data?.calendar_token ?? null;
-        set({ dailyLogs, tasks, coreDisciplines: cdRes.data || [], earnings, calendarToken });
+        set({ dailyLogs, tasks: mergedTasks, coreDisciplines: cdRes.data || [], earnings, calendarToken });
 
         // Migrate last 7 days to the independent negative model
         const today = new Date();
@@ -253,8 +263,9 @@ const useStore = create(
         }
 
         // 2. Inject only disciplines not already present
+        const currentTasks = get().tasks[date] ?? [];
         const injectedIds = new Set(
-          uniqueTasks.filter((t) => t.isCoreDiscipline).map((t) => t.coreDisciplineId)
+          currentTasks.filter((t) => t.isCoreDiscipline).map((t) => t.coreDisciplineId)
         );
         const missing = coreDisciplines.filter((cd) => cd.active !== false && !injectedIds.has(cd.id));
         if (missing.length > 0) {
@@ -276,24 +287,35 @@ const useStore = create(
               const key = t.name + '|' + (t.originalDate ?? pastDate);
               if (!existingTaskKeys.has(key)) {
                 existingTaskKeys.add(key);
-                addTask(date, {
-                  ...t,
-                  id: crypto.randomUUID(),
-                  logDate: date,
-                  status: 'missed',
-                  delayCount: (t.delayCount ?? 0) + 1,
-                  rolloverType: 'postponed_rollover',
-                  rolloverBadge: 'red',
-                  postponedToDate: null,
-                  auditNotes: '', // Fresh notes for the new day
-                  originalDate: t.originalDate ?? pastDate,
-                });
+                const currentTasks = get().tasks[date] ?? [];
+                if (!currentTasks.some(ct => ct.name === t.name && ct.originalDate === (t.originalDate ?? pastDate))) {
+                  addTask(date, {
+                    ...t,
+                    id: crypto.randomUUID(),
+                    logDate: date,
+                    status: 'missed',
+                    delayCount: (t.delayCount ?? 0) + 1,
+                    rolloverType: 'postponed_rollover',
+                    rolloverBadge: 'red',
+                    postponedToDate: null,
+                    auditNotes: '', // Fresh notes for the new day
+                    originalDate: t.originalDate ?? pastDate,
+                  });
+                }
               }
             } else if (!t.isCoreDiscipline && t.recurrence && t.recurrence !== 'none' && t.status !== 'cancelled') {
               // Skip cancelled tasks — they are tombstones, not sources for new recurrences
               let shouldRecur = false;
               if (t.recurrence === 'daily' && pastDate === format(addDays(new Date(date + 'T00:00:00'), -1), 'yyyy-MM-dd')) {
                 shouldRecur = true;
+              } else if (t.recurrence === 'weekdays') {
+                const targetDay = new Date(date + 'T00:00:00').getDay();
+                if (targetDay >= 1 && targetDay <= 5) {
+                  const daysToSubtract = targetDay === 1 ? 3 : 1;
+                  if (pastDate === format(addDays(new Date(date + 'T00:00:00'), -daysToSubtract), 'yyyy-MM-dd')) {
+                    shouldRecur = true;
+                  }
+                }
               } else if (t.recurrence === 'weekly' && pastDate === format(addDays(new Date(date + 'T00:00:00'), -7), 'yyyy-MM-dd')) {
                 shouldRecur = true;
               } else if (t.recurrence === 'monthly') {
@@ -308,19 +330,22 @@ const useStore = create(
                 const key = t.name + '|' + date;
                 if (!existingTaskKeys.has(key)) {
                   existingTaskKeys.add(key);
-                  addTask(date, {
-                    ...t,
-                    id: crypto.randomUUID(),
-                    logDate: date,
-                    status: 'missed',
-                    completionPercentage: 0,
-                    delayCount: 0,
-                    rolloverType: 'recurring',
-                    rolloverBadge: 'blue',
-                    postponedToDate: null,
-                    auditNotes: '', // Fresh notes for the new recurrence cycle
-                    originalDate: date, // reset originalDate for the new recurrence cycle
-                  });
+                  const currentTasks = get().tasks[date] ?? [];
+                  if (!currentTasks.some(ct => ct.name === t.name && ct.rolloverType === 'recurring')) {
+                    addTask(date, {
+                      ...t,
+                      id: crypto.randomUUID(),
+                      logDate: date,
+                      status: 'missed',
+                      completionPercentage: 0,
+                      delayCount: 0,
+                      rolloverType: 'recurring',
+                      rolloverBadge: 'blue',
+                      postponedToDate: null,
+                      auditNotes: '', // Fresh notes for the new recurrence cycle
+                      originalDate: date, // reset originalDate for the new recurrence cycle
+                    });
+                  }
                 }
               }
             }
