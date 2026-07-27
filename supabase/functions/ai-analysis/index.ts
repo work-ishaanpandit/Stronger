@@ -38,9 +38,12 @@ serve(async (req) => {
     }
 
     // Determine date range based on timeView
-    const days = timeView === 'weekly' ? 7 : 30;
+    let days = 1;
+    if (timeView === 'weekly') days = 7;
+    else if (timeView === 'monthly') days = 30;
+    
     const pastDate = new Date();
-    pastDate.setDate(pastDate.getDate() - days);
+    pastDate.setDate(pastDate.getDate() - days + 1);
     const dateStr = pastDate.toISOString().split('T')[0];
 
     // Fetch data for context
@@ -53,8 +56,12 @@ serve(async (req) => {
        return new Response(JSON.stringify({ error: 'Failed to fetch data' }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 });
     }
 
-    const tasks = tasksRes.data || [];
+    // Filter out cancelled tasks from the analysis
+    const tasks = (tasksRes.data || []).filter(t => t.status !== 'cancelled');
     const logs = logsRes.data || [];
+
+    // Extract hashtags
+    const hashtags = [...new Set(tasks.map(t => t.tag).filter(Boolean))];
 
     // Prompt construction
     const promptContext = `
@@ -64,15 +71,19 @@ Analyze the data and provide a concise pattern recognition summary.
 
 Task Data summary:
 - Total tasks planned: ${tasks.length}
-- Completed tasks: ${tasks.filter(t => t.status === 'completed' || t.status === 'finished').length}
+- Completed tasks: ${tasks.filter(t => t.status === 'completed' || t.status === 'finished' || t.status === 'partly_done').length}
 - Missed tasks: ${tasks.filter(t => t.status === 'missed').length}
-- Key themes (tags): ${[...new Set(tasks.map(t => t.tag).filter(Boolean))].join(', ')}
+- Postponed tasks: ${tasks.filter(t => t.status?.startsWith('postponed')).length}
+- Key themes (hashtags): ${hashtags.length > 0 ? hashtags.join(', ') : 'None'}
 
 Notable Task Audit Notes:
-${tasks.filter(t => t.audit_notes?.trim()).map(t => `- [${t.log_date}] ${t.name}: ${t.audit_notes}`).join('\n')}
+${tasks.filter(t => t.audit_notes?.trim()).map(t => `- [${t.log_date}] ${t.name}: ${t.audit_notes}`).join('\n') || 'None'}
 
-Journal Highlights (Last ${days} days):
-${logs.map(l => `- [${l.date}] Highlight: ${l.highlight || 'None'}, Reflection: ${l.reflection || 'None'}, Epiphany: ${l.epiphany || 'None'}`).join('\n')}
+Daily Journaling (Last ${days} days):
+${logs.map(l => `- [${l.date}] 
+  What I Learned Today: ${l.learned_notes || 'None'}
+  Daily Reflection: ${l.reflection || 'None'}
+  Epiphany: ${l.epiphany || 'None'}`).join('\n') || 'None'}
 
 Based on this, generate a JSON response with exactly this structure:
 {
