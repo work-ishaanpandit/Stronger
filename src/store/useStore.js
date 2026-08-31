@@ -651,21 +651,70 @@ const useStore = create(
         return { totalPending, pendingDays };
       },
 
+      resetPendingBalance: async () => {
+        const user = await getUser();
+        if (!user) return;
+
+        const { pendingDays } = get().getPendingRemuneration();
+        if (pendingDays.length === 0) return;
+
+        const localUpdates = {};
+        const dbUpdates = [];
+
+        for (const [date, data] of pendingDays) {
+          const rCalc = parseFloat(data.R_calc || 0);
+          localUpdates[date] = { claimed: true, amount_received: rCalc };
+
+          dbUpdates.push({
+            date,
+            user_id: user.id,
+            r_calc:            data.R_calc        || 0,
+            e_base:            data.E_base        || 0,
+            p_base:            data.P_base        || 0,
+            p_potential:       data.P_potential   || 0,
+            d_tot:             data.D_tot         || 0,
+            m_pow:             data.M_pow         || 1,
+            new_debt:          data.newDebt       || 0,
+            amount_earned:     data.R_calc        || 0,
+            multiplier_applied:data.M_pow         || 1,
+            total_damage:      data.D_tot         || 0,
+            negative_carryover:data.newDebt       || 0,
+            claimed:           true,
+            amount_received:   rCalc,
+          });
+        }
+
+        if (dbUpdates.length === 0) return;
+
+        const { error } = await supabase
+          .from('earnings')
+          .upsert(dbUpdates, { onConflict: 'date,user_id' });
+
+        if (error) {
+          console.error('resetPendingBalance DB error:', error);
+          alert('Failed to reset balance: ' + error.message);
+          return;
+        }
+
+        set((state) => {
+          const newEarnings = { ...state.earnings };
+          Object.entries(localUpdates).forEach(([d, up]) => {
+            newEarnings[d] = { ...(newEarnings[d] || {}), ...up };
+          });
+          return { earnings: newEarnings };
+        });
+      },
+
       settleUp: async (amountReceived) => {
         const user = await getUser();
         if (!user) return;
 
-        const { earnings } = get();
-        const today = format(new Date(), 'yyyy-MM-dd');
-
-        const { totalPending, pendingDays: currentPendingDays } = get().getPendingRemuneration();
-        // Recalculate pendingDays fresh here to avoid stale closure issues
-        const pendingDays = currentPendingDays;
+        const { totalPending, pendingDays } = get().getPendingRemuneration();
 
         if (pendingDays.length === 0) return;
 
         let remaining = Math.max(0, amountReceived || 0);
-        const settlingAll = Math.abs(remaining - totalPending) < 0.01;
+        const settlingAll = Math.abs(remaining - totalPending) < 0.01 || totalPending <= 0;
         
         const localUpdates = {};
         const dbUpdates = [];
