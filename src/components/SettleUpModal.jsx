@@ -3,6 +3,9 @@ import { X, CheckCircle, IndianRupee, RotateCcw } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import useStore from '../store/useStore';
 
+// Conditional Feature Flag (default: turned off)
+const ENABLE_RESET_FEATURE = false;
+
 export default function SettleUpModal({ onClose }) {
   const getPendingRemuneration = useStore((s) => s.getPendingRemuneration);
   const settleUp = useStore((s) => s.settleUp);
@@ -12,10 +15,10 @@ export default function SettleUpModal({ onClose }) {
   const [actualAmount, setActualAmount] = useState(Math.max(0, totalPending).toFixed(2));
   const [submitting, setSubmitting] = useState(false);
 
-  const isNegative = totalPending < 0;
+  const isNegative = totalPending < 0 && ENABLE_RESET_FEATURE;
 
   const handleReset = async () => {
-    if (submitting) return;
+    if (!ENABLE_RESET_FEATURE || submitting) return;
     setSubmitting(true);
     await resetPendingBalance();
     setSubmitting(false);
@@ -25,7 +28,7 @@ export default function SettleUpModal({ onClose }) {
   // Live preview: how the entered amount distributes
   const preview = useMemo(() => {
     const entered = parseFloat(actualAmount) || 0;
-    const settlingAll = Math.abs(entered - totalPending) < 0.01 || totalPending <= 0;
+    const settlingAll = Math.abs(entered - totalPending) < 0.01;
     let remaining = entered;
     
     return pendingDays.map(([date, data]) => {
@@ -60,11 +63,11 @@ export default function SettleUpModal({ onClose }) {
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content" style={{ maxWidth: '460px' }}>
+      <div className="modal-content" style={{ maxWidth: '440px' }}>
         <div className="modal-header">
           <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <CheckCircle size={20} style={{ color: isNegative ? 'var(--red)' : 'var(--green)' }} />
-            {isNegative ? 'Reset Pending Balance' : 'Settle Up Remuneration'}
+            <CheckCircle size={20} style={{ color: 'var(--green)' }} />
+            Settle Up Remuneration
           </h2>
           <button className="btn btn-ghost btn-icon" onClick={onClose} disabled={submitting}>
             <X size={18} />
@@ -73,13 +76,11 @@ export default function SettleUpModal({ onClose }) {
 
         <div className="modal-body">
           <div className="text-sm text-secondary" style={{ marginBottom: 'var(--sp-4)' }}>
-            <strong>{pendingDays.length}</strong> days pending · Total balance:{' '}
-            <strong style={{ color: isNegative ? 'var(--red)' : 'var(--green)' }}>
-              ₹{totalPending.toFixed(2)}
-            </strong>
+            <strong>{pendingDays.length}</strong> days pending · Total outstanding:{' '}
+            <strong style={{ color: 'var(--green)' }}>₹{totalPending.toFixed(2)}</strong>
           </div>
 
-          {isNegative && (
+          {ENABLE_RESET_FEATURE && isNegative && (
             <div style={{
               background: 'rgba(255,69,58,0.08)',
               border: '1px solid rgba(255,69,58,0.3)',
@@ -107,27 +108,23 @@ export default function SettleUpModal({ onClose }) {
           )}
 
           <form onSubmit={handleSubmit}>
-            {!isNegative && (
-              <>
-                <div className="input-group" style={{ marginBottom: 'var(--sp-4)' }}>
-                  <label className="input-label">Amount Received (₹)</label>
-                  <div style={{ position: 'relative' }}>
-                    <IndianRupee size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
-                    <input
-                      type="number"
-                      className="input"
-                      style={{ paddingLeft: '36px', fontSize: '1.2rem', fontWeight: 600 }}
-                      value={actualAmount}
-                      onChange={(e) => setActualAmount(e.target.value)}
-                      min="0"
-                      step="0.01"
-                      required
-                      autoFocus
-                    />
-                  </div>
-                </div>
-              </>
-            )}
+            <div className="input-group" style={{ marginBottom: 'var(--sp-4)' }}>
+              <label className="input-label">Amount Received (₹)</label>
+              <div style={{ position: 'relative' }}>
+                <IndianRupee size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+                <input
+                  type="number"
+                  className="input"
+                  style={{ paddingLeft: '36px', fontSize: '1.2rem', fontWeight: 600 }}
+                  value={actualAmount}
+                  onChange={(e) => setActualAmount(e.target.value)}
+                  min="0"
+                  step="0.01"
+                  required
+                  autoFocus
+                />
+              </div>
+            </div>
 
             {/* Live day-by-day allocation preview */}
             {pendingDays.length > 0 && (
@@ -141,7 +138,7 @@ export default function SettleUpModal({ onClose }) {
                 overflowY: 'auto',
               }}>
                 <div className="text-xs text-tertiary" style={{ marginBottom: 'var(--sp-2)', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                  Unsettled Days Breakdown
+                  Allocation Preview (Oldest First)
                 </div>
                 {preview.map(({ date, pendingForDay, applied, fullySettled }) => (
                   <div key={date} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
@@ -155,38 +152,31 @@ export default function SettleUpModal({ onClose }) {
               </div>
             )}
 
-            {!isNegative && (
-              <div style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                padding: 'var(--sp-3)', marginBottom: 'var(--sp-4)',
-                borderRadius: 'var(--radius-md)',
-                background: leftOver > 0 ? 'rgba(255,159,10,0.08)' : 'rgba(48,209,88,0.08)',
-                border: `1px solid ${leftOver > 0 ? 'rgba(255,159,10,0.3)' : 'rgba(48,209,88,0.3)'}`,
-              }}>
-                <span className="text-sm font-medium">
-                  {leftOver > 0 ? 'Still pending after this settlement' : '✓ Fully settled'}
+            {/* Remaining balance summary */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: 'var(--sp-3)', marginBottom: 'var(--sp-4)',
+              borderRadius: 'var(--radius-md)',
+              background: leftOver > 0 ? 'rgba(255,159,10,0.08)' : 'rgba(48,209,88,0.08)',
+              border: `1px solid ${leftOver > 0 ? 'rgba(255,159,10,0.3)' : 'rgba(48,209,88,0.3)'}`,
+            }}>
+              <span className="text-sm font-medium">
+                {leftOver > 0 ? 'Still pending after this settlement' : '✓ Fully settled'}
+              </span>
+              {leftOver > 0 && (
+                <span style={{ fontWeight: 700, color: 'var(--orange)', fontSize: 16 }}>
+                  ₹{leftOver.toFixed(2)}
                 </span>
-                {leftOver > 0 && (
-                  <span style={{ fontWeight: 700, color: 'var(--orange)', fontSize: 16 }}>
-                    ₹{leftOver.toFixed(2)}
-                  </span>
-                )}
-              </div>
-            )}
+              )}
+            </div>
 
             <div className="modal-footer">
               <button type="button" className="btn btn-ghost" onClick={onClose} disabled={submitting}>
                 Cancel
               </button>
-              {isNegative ? (
-                <button type="button" className="btn btn-primary" onClick={handleReset} disabled={submitting}>
-                  {submitting ? 'Resetting...' : 'Reset Balance to ₹0.00'}
-                </button>
-              ) : (
-                <button type="submit" className="btn btn-primary" disabled={submitting}>
-                  {submitting ? 'Settling...' : 'Confirm Received'}
-                </button>
-              )}
+              <button type="submit" className="btn btn-primary" disabled={submitting}>
+                {submitting ? 'Settling...' : 'Confirm Received'}
+              </button>
             </div>
           </form>
         </div>
