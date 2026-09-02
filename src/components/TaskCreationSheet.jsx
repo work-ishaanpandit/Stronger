@@ -137,7 +137,7 @@ export default function TaskCreationSheet({ date, task = null, onClose }) {
           />
         </div>
 
-        {/* Eisenhower Planning Fields (Importance & Urgency) */}
+        {/* Eisenhower Planning Fields */}
         <div style={{
           background: 'var(--elevated)',
           padding: 'var(--sp-4)',
@@ -145,12 +145,24 @@ export default function TaskCreationSheet({ date, task = null, onClose }) {
           border: '1px solid var(--border)',
           marginBottom: 'var(--sp-5)'
         }}>
-          <div className="text-xs font-semibold uppercase tracking-wider text-tertiary" style={{ marginBottom: 'var(--sp-3)', display: 'flex', alignItems: 'center', gap: 6 }}>
-            <Sliders size={14} className="text-purple" />
-            Eisenhower & Planning Matrix
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--sp-3)' }}>
+            <div className="text-xs font-semibold uppercase tracking-wider text-tertiary" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Sliders size={14} className="text-purple" />
+              Eisenhower Matrix
+            </div>
+
+            {/* Dynamic Quadrant Badge */}
+            {(() => {
+              const q = getEisenhowerQuadrant(form.importance, form.urgency);
+              return (
+                <span className="badge" style={{ background: q.bg, color: q.color, border: `1px solid ${q.border}`, fontSize: 11, fontWeight: 600 }}>
+                  {q.emoji} {q.label}
+                </span>
+              );
+            })()}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sp-3)', marginBottom: 'var(--sp-3)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--sp-3)', marginBottom: 'var(--sp-3)' }}>
             <div>
               <label htmlFor="task-importance" className="text-xs">Importance</label>
               <select
@@ -172,20 +184,6 @@ export default function TaskCreationSheet({ date, task = null, onClose }) {
                 className="input input-sm"
                 value={form.urgency}
                 onChange={(e) => set('urgency', e.target.value)}
-              >
-                <option value="High">High</option>
-                <option value="Medium">Medium</option>
-                <option value="Low">Low</option>
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="task-priority" className="text-xs">Priority</label>
-              <select
-                id="task-priority"
-                className="input input-sm"
-                value={form.priority}
-                onChange={(e) => set('priority', e.target.value)}
               >
                 <option value="High">High</option>
                 <option value="Medium">Medium</option>

@@ -1264,7 +1264,10 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
   .sheet {
     max-width: 100%;
     border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    margin-top: calc(64px + env(safe-area-inset-top, 0px));
+    max-height: calc(100vh - 64px - env(safe-area-inset-top, 0px));
     padding-bottom: calc(var(--sp-8) + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.8);
   }
 
   /* Auth card padding on mobile */

@@ -500,31 +500,35 @@ function TaskCard({ task, onSelect, onAddToToday, onMoveQuadrant, currencySymbol
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: isListView ? 'flex-end' : 'space-between', marginTop: isListView ? 0 : 4, flexWrap: 'wrap' }}>
-        {/* Quadrant Quick Shift Pills for 1-tap movement on mobile & touch */}
-        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+        {/* Quick Quadrant Selector Dropdown */}
+        <select
+          value={qInfo.key}
+          onClick={(e) => e.stopPropagation()}
+          onChange={(e) => {
+            e.stopPropagation();
+            if (onMoveQuadrant) onMoveQuadrant(e.target.value);
+          }}
+          className="input input-sm"
+          style={{
+            fontSize: 10,
+            padding: '1px 6px',
+            height: 22,
+            width: 'auto',
+            background: qInfo.bg,
+            color: qInfo.color,
+            border: `1px solid ${qInfo.border}`,
+            borderRadius: 'var(--radius-sm)',
+            fontWeight: 600,
+            cursor: 'pointer'
+          }}
+          title="Change Eisenhower Quadrant"
+        >
           {Object.values(QUADRANTS).map((q) => (
-            <button
-              key={q.key}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onMoveQuadrant) onMoveQuadrant(q.key);
-              }}
-              className="btn btn-ghost"
-              style={{
-                padding: '2px 5px',
-                height: 22,
-                fontSize: 10,
-                background: qInfo.key === q.key ? q.bg : 'transparent',
-                border: `1px solid ${qInfo.key === q.key ? q.color : 'var(--border)'}`,
-                color: qInfo.key === q.key ? q.color : 'var(--text-tertiary)',
-                borderRadius: 'var(--radius-sm)'
-              }}
-              title={`Move to ${q.label}`}
-            >
-              {q.emoji}
-            </button>
+            <option key={q.key} value={q.key}>
+              {q.emoji} {q.label}
+            </option>
           ))}
-        </div>
+        </select>
 
         {!isAssignedToToday ? (
           <button
