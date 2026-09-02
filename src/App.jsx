@@ -1,6 +1,5 @@
 import './index.css';
 import { useState, useEffect } from 'react';
-import { Sun, Moon, LayoutDashboard, Layers } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import useStore from './store/useStore';
 import AuthGate from './components/AuthGate';
@@ -13,7 +12,6 @@ import ChronicleGrid from './pages/ChronicleGrid';
 
 export default function App() {
   const activeTab         = useStore((s) => s.activeTab);
-  const setActiveTab      = useStore((s) => s.setActiveTab);
   const fetchFromSupabase = useStore((s) => s.fetchFromSupabase);
 
   const [session, setSession] = useState(null);
@@ -87,38 +85,6 @@ export default function App() {
         {activeTab === 'dusk'      && <DuskSynthesis />}
         {activeTab === 'chronicle' && <ChronicleGrid />}
       </div>
-
-      {/* Mobile Bottom Navigation — hidden on desktop via CSS */}
-      <nav className="bottom-nav">
-        <button
-          className={`bottom-nav-item ${activeTab === 'dawn' ? 'active' : ''}`}
-          onClick={() => setActiveTab('dawn')}
-        >
-          <Sun size={20} />
-          <span className="bottom-nav-label">Dawn</span>
-        </button>
-        <button
-          className={`bottom-nav-item ${activeTab === 'basket' ? 'active' : ''}`}
-          onClick={() => setActiveTab('basket')}
-        >
-          <Layers size={20} />
-          <span className="bottom-nav-label">Basket</span>
-        </button>
-        <button
-          className={`bottom-nav-item ${activeTab === 'dusk' ? 'active' : ''}`}
-          onClick={() => setActiveTab('dusk')}
-        >
-          <Moon size={20} />
-          <span className="bottom-nav-label">Dusk</span>
-        </button>
-        <button
-          className={`bottom-nav-item ${activeTab === 'chronicle' ? 'active' : ''}`}
-          onClick={() => setActiveTab('chronicle')}
-        >
-          <LayoutDashboard size={20} />
-          <span className="bottom-nav-label">Chronicle</span>
-        </button>
-      </nav>
     </div>
   );
 }

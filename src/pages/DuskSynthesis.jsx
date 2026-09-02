@@ -250,28 +250,28 @@ export default function DuskSynthesis() {
               <div className="earnings-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--sp-4)' }}>
                   <div>
-                    <div className={`earnings-amount ${todayEarnings.R_calc === 0 ? 'negative' : todayEarnings.R_calc < 500 ? 'partial' : ''}`}>
-                      {currencySymbol}{todayEarnings.R_calc.toFixed(2)}
+                    <div className={`earnings-amount ${(todayEarnings.R_calc ?? 0) <= 0 ? 'negative' : (todayEarnings.R_calc ?? 0) < 500 ? 'partial' : ''}`}>
+                      {currencySymbol}{(todayEarnings.R_calc ?? 0).toFixed(2)}
                     </div>
                   </div>
                   <div style={{ textAlign: 'right', fontSize: 13, color: 'var(--text-tertiary)', lineHeight: 1.8 }}>
-                    <div>Base {currencySymbol}{todayEarnings.E_base.toFixed(0)}</div>
-                    <div>Damage -{currencySymbol}{todayEarnings.D_tot.toFixed(0)}</div>
-                    {todayEarnings.debtCarryover > 0 && (
-                      <div style={{ color: 'var(--red)' }}>Debt Carryover -{currencySymbol}{todayEarnings.debtCarryover.toFixed(0)}</div>
+                    <div>Base {currencySymbol}{(todayEarnings.E_base ?? 0).toFixed(0)}</div>
+                    <div>Damage -{currencySymbol}{(todayEarnings.D_tot ?? 0).toFixed(0)}</div>
+                    {(todayEarnings.debtCarryover ?? 0) > 0 && (
+                      <div style={{ color: 'var(--red)' }}>Debt Carryover -{currencySymbol}{(todayEarnings.debtCarryover ?? 0).toFixed(0)}</div>
                     )}
-                    <div>Power {todayEarnings.M_pow.toFixed(2)}×</div>
+                    <div>Power {(todayEarnings.M_pow ?? 1).toFixed(2)}×</div>
                   </div>
                 </div>
                 {/* Progress bar */}
                 <div className="progress-bar-wrap">
                   <div
-                    className={`progress-bar-fill ${todayEarnings.completionRatio >= 0.8 ? 'green' : todayEarnings.completionRatio >= 0.5 ? 'orange' : 'red'}`}
-                    style={{ width: `${Math.min(100, todayEarnings.completionRatio * 100)}%` }}
+                    className={`progress-bar-fill ${(todayEarnings.completionRatio ?? 0) >= 0.8 ? 'green' : (todayEarnings.completionRatio ?? 0) >= 0.5 ? 'orange' : 'red'}`}
+                    style={{ width: `${Math.min(100, (todayEarnings.completionRatio ?? 0) * 100)}%` }}
                   />
                 </div>
                 <div className="text-xs text-tertiary" style={{ marginTop: 6, textAlign: 'right' }}>
-                  {Math.round(todayEarnings.completionRatio * 100)}% completion
+                  {Math.round((todayEarnings.completionRatio ?? 0) * 100)}% completion
                 </div>
               </div>
             </div>

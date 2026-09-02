@@ -1214,56 +1214,9 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
   to { transform: rotate(360deg); }
 }
 
-/* ── Mobile Bottom Nav ───────────────────────────────────────── */
+/* ── Mobile Bottom Nav (Disabled: use collapsible sidebar drawer) ── */
 .bottom-nav {
-  display: none; /* Hidden on desktop */
-}
-
-@media (max-width: 899px) {
-  .bottom-nav {
-    display: flex;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 64px;
-    background: rgba(18, 18, 20, 0.92);
-    border-top: 1px solid var(--border);
-    z-index: 50;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    align-items: center;
-    justify-content: space-around;
-    padding: 0 var(--sp-4);
-    /* iOS safe area (notch / home indicator) */
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-  }
-}
-
-.bottom-nav-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: var(--sp-2) var(--sp-3);
-  border-radius: var(--radius-md);
-  color: var(--text-quaternary);
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  transition: color 0.2s var(--ease);
-  min-width: 64px;
-  min-height: 44px; /* iOS touch target minimum */
-  font-family: var(--font);
-}
-
-.bottom-nav-item.active { color: var(--blue); }
-.bottom-nav-item:active  { opacity: 0.7; }
-
-.bottom-nav-label {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
+  display: none !important;
 }
 
 /* ── Mobile Layout Overrides ─────────────────────────────────── */
@@ -1271,10 +1224,9 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
   /* Hide the desktop sidebar */
   .side-nav { display: none; }
 
-  /* Add bottom padding so content isn't hidden behind bottom nav */
   .page {
     padding: var(--sp-5) var(--sp-4);
-    padding-bottom: 80px; /* bottom nav height + buffer */
+    padding-bottom: var(--sp-6);
     height: calc(100vh - 0px);
   }
 
