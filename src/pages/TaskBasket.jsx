@@ -93,7 +93,7 @@ export default function TaskBasket() {
   };
 
   return (
-    <main className="page anim-fade" style={{ maxWidth: '100%' }}>
+    <main className="page anim-fade">
       {/* Page Header */}
       <div className="page-header">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--sp-3)' }}>

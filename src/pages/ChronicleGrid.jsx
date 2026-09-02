@@ -61,7 +61,7 @@ export default function ChronicleGrid() {
   const statusLabels = { green: 'Complete', yellow: 'Partial', red: 'Missing', empty: 'Empty' };
 
   return (
-    <main className="page anim-fade" style={{ maxWidth: '100%' }}>
+    <main className="page anim-fade">
       {/* Header */}
       <div className="page-header">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
