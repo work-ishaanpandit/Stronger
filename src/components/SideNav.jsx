@@ -30,112 +30,110 @@ export default function SideNav({ session, isMobileOpen, onCloseMobile }) {
 
   return (
     <>
-    {/* Mobile backdrop */}
-    {isMobileOpen && (
-      <div 
-        className="mobile-nav-backdrop"
-        onClick={onCloseMobile}
-        aria-hidden="true"
-      />
-    )}
+      {/* Mobile Drawer Backdrop */}
+      {isMobileOpen && (
+        <div className="side-nav-mobile-overlay" onClick={onCloseMobile} />
+      )}
 
-    <aside className={`sidenav ${isMobileOpen ? 'mobile-open' : ''}`}>
-      {/* App Branding */}
-      <div className="nav-brand">
-        <img src="/logo.png" alt="Stronger Logo" className="nav-logo" />
-        <div className="nav-brand-text">
-          <div className="nav-title">Stronger</div>
-          <div className="nav-subtitle">Discipline Ledger</div>
+      <aside className={`side-nav ${isMobileOpen ? 'mobile-open' : ''}`}>
+        {/* App Branding */}
+        <div className="nav-brand">
+          <img src="/logo.png" alt="Stronger Logo" className="nav-brand-logo-img" />
+          <div className="nav-brand-text">
+            <div className="nav-title">Stronger</div>
+            <div className="nav-subtitle">Discipline Ledger</div>
+          </div>
         </div>
-      </div>
 
-      {/* Today Date Badge */}
-      <div className="nav-date-badge">
-        <Sun size={12} />
-        <span>{today}</span>
-      </div>
+        {/* Today Date Badge */}
+        <div className="nav-date-chip" style={{ marginBottom: 'var(--sp-4)' }}>
+          <Sun size={12} />
+          <span>{today}</span>
+        </div>
 
-      {/* Navigation Links */}
-      <nav className="nav-links">
-        {TABS.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              className={`nav-item ${isActive ? 'active' : ''}`}
-              onClick={() => {
-                setActiveTab(tab.id);
-                if (onCloseMobile) onCloseMobile();
-              }}
-            >
-              <Icon size={18} className="nav-item-icon" />
-              <div className="nav-item-text">
-                <div className="nav-item-label">{tab.label}</div>
-                <div className="nav-item-desc">{tab.desc}</div>
-              </div>
-            </button>
-          );
-        })}
-      </nav>
-
-      {/* Footer Tools & User Profile */}
-      <div className="nav-footer">
-        {/* Calendar subscription toggle */}
-        {user && (
-          <div style={{ marginBottom: 'var(--sp-2)' }}>
-            <button
-              className="btn btn-sm btn-ghost"
-              onClick={() => setShowCalPanel((v) => !v)}
-              style={{ width: '100%', justifyContent: 'flex-start', gap: 8, fontSize: 12 }}
-            >
-              <CalendarIcon size={13} />
-              {showCalPanel ? 'Hide Calendar Link' : 'Calendar Subscription'}
-            </button>
-            {showCalPanel && (
-              <div style={{ marginTop: 'var(--sp-2)' }}>
-                <CalendarLinkPanel />
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* User Profile + Settings + Sign Out */}
-        {user && (
-          <div className="nav-user">
-            <div className="nav-user-info">
-              {avatarUrl
-                ? <img src={avatarUrl} alt={displayName} className="nav-avatar" />
-                : <div className="nav-avatar nav-avatar-placeholder">
-                    {displayName.charAt(0).toUpperCase()}
-                  </div>
-              }
-              <div className="nav-user-name" title={user.email}>{displayName.split(' ')[0]}</div>
-            </div>
-            <div style={{ display: 'flex', gap: '4px' }}>
+        {/* Navigation Links */}
+        <nav className="nav-links">
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
               <button
-                className="btn btn-sm btn-ghost btn-icon"
-                onClick={() => setShowSettings(true)}
-                title="Settings"
-                aria-label="Settings"
+                key={tab.id}
+                className={`nav-item ${isActive ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  if (onCloseMobile) onCloseMobile();
+                }}
               >
-                <SettingsIcon size={14} />
+                <div className="nav-item-icon"><Icon size={18} /></div>
+                <div className="nav-item-text">
+                  <div className="nav-item-label">{tab.label}</div>
+                  <div className="nav-item-desc">{tab.desc}</div>
+                </div>
               </button>
-              <button
-                className="btn btn-sm btn-ghost btn-icon"
-                onClick={handleSignOut}
-                title="Sign out"
-                aria-label="Sign out"
-              >
-                <LogOut size={14} />
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+            );
+          })}
+        </nav>
 
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
-    </aside>
+        {/* Footer Tools & User Profile */}
+        <div className="nav-footer">
+          {/* Calendar subscription toggle */}
+          {user && (
+            <div style={{ marginBottom: 'var(--sp-2)' }}>
+              <button
+                className="btn btn-sm btn-ghost"
+                onClick={() => setShowCalPanel((v) => !v)}
+                style={{ width: '100%', justifyContent: 'flex-start', gap: 8, fontSize: 12 }}
+              >
+                <CalendarIcon size={13} />
+                {showCalPanel ? 'Hide Calendar Link' : 'Calendar Subscription'}
+              </button>
+              {showCalPanel && (
+                <div style={{ marginTop: 'var(--sp-2)' }}>
+                  <CalendarLinkPanel />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* User Profile + Settings + Sign Out */}
+          {user && (
+            <div className="nav-user" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'var(--sp-2)' }}>
+              <div className="nav-user-info" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {avatarUrl
+                  ? <img src={avatarUrl} alt={displayName} className="nav-avatar" style={{ width: 28, height: 28, borderRadius: '50%' }} />
+                  : <div className="nav-avatar nav-avatar-placeholder" style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--blue)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600 }}>
+                      {displayName.charAt(0).toUpperCase()}
+                    </div>
+                }
+                <div className="nav-user-name text-xs font-semibold" title={user.email}>{displayName.split(' ')[0]}</div>
+              </div>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <button
+                  className="btn btn-sm btn-ghost btn-icon"
+                  onClick={() => setShowSettings(true)}
+                  title="Settings"
+                  aria-label="Settings"
+                  style={{ width: 28, height: 28 }}
+                >
+                  <SettingsIcon size={13} />
+                </button>
+                <button
+                  className="btn btn-sm btn-ghost btn-icon"
+                  onClick={handleSignOut}
+                  title="Sign out"
+                  aria-label="Sign out"
+                  style={{ width: 28, height: 28 }}
+                >
+                  <LogOut size={13} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      </aside>
     </>
   );
 }
