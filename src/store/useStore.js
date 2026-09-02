@@ -424,7 +424,14 @@ const useStore = create(
         const seen = new Set();
         const result = [];
         for (const t of allTasks) {
-          if (t && t.id && !seen.has(t.id) && t.status !== 'cancelled') {
+          if (
+            t && 
+            t.id && 
+            !seen.has(t.id) && 
+            t.status !== 'cancelled' &&
+            !t.isCoreDiscipline &&
+            !t.coreDisciplineId
+          ) {
             seen.add(t.id);
             result.push(t);
           }

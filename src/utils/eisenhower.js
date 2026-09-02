@@ -76,7 +76,7 @@ export function filterTasks(taskList = [], { filter = 'all', category = 'all', p
   const todayStr = new Date().toISOString().split('T')[0];
 
   return taskList.filter((t) => {
-    if (t.status === 'cancelled') return false;
+    if (t.status === 'cancelled' || t.isCoreDiscipline || t.coreDisciplineId) return false;
 
     // Search query filter
     if (query) {
