@@ -96,38 +96,29 @@ export default function SideNav({ session, isMobileOpen, onCloseMobile }) {
             </div>
           )}
 
-          {/* User Profile + Settings + Sign Out */}
+          {/* User Profile + Sign Out */}
           {user && (
-            <div className="nav-user" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'var(--sp-2)' }}>
-              <div className="nav-user-info" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div className="nav-user" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'var(--sp-2)', padding: '4px 0' }}>
+              <div className="nav-user-info" style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                 {avatarUrl
-                  ? <img src={avatarUrl} alt={displayName} className="nav-avatar" style={{ width: 28, height: 28, borderRadius: '50%' }} />
-                  : <div className="nav-avatar nav-avatar-placeholder" style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--blue)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 600 }}>
+                  ? <img src={avatarUrl} alt={displayName} className="nav-avatar" style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0, objectFit: 'cover' }} />
+                  : <div className="nav-avatar nav-avatar-placeholder" style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--blue)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
                       {displayName.charAt(0).toUpperCase()}
                     </div>
                 }
-                <div className="nav-user-name text-xs font-semibold" title={user.email}>{displayName.split(' ')[0]}</div>
+                <div className="nav-user-name text-xs font-semibold" title={user.email} style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {displayName.split(' ')[0]}
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: '4px' }}>
-                <button
-                  className="btn btn-sm btn-ghost btn-icon"
-                  onClick={() => setShowSettings(true)}
-                  title="Settings"
-                  aria-label="Settings"
-                  style={{ width: 28, height: 28 }}
-                >
-                  <SettingsIcon size={13} />
-                </button>
-                <button
-                  className="btn btn-sm btn-ghost btn-icon"
-                  onClick={handleSignOut}
-                  title="Sign out"
-                  aria-label="Sign out"
-                  style={{ width: 28, height: 28 }}
-                >
-                  <LogOut size={13} />
-                </button>
-              </div>
+              <button
+                className="btn btn-ghost btn-icon"
+                onClick={handleSignOut}
+                title="Sign out"
+                aria-label="Sign out"
+                style={{ width: 32, height: 32, minWidth: 32, minHeight: 32, padding: 0, borderRadius: '50%', flexShrink: 0 }}
+              >
+                <LogOut size={14} />
+              </button>
             </div>
           )}
         </div>

@@ -180,12 +180,18 @@ button { cursor: pointer; border: none; outline: none; font-family: var(--font);
 }
 
 .btn-icon {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
   padding: 0;
   border-radius: 50%;
   background: var(--elevated);
   color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 .btn-icon:hover { background: var(--border); color: var(--text-primary); }
 
@@ -1226,8 +1232,11 @@ input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
 
   .page {
     padding: var(--sp-5) var(--sp-4);
-    padding-bottom: var(--sp-6);
-    height: calc(100vh - 0px);
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 20px));
+    height: auto !important;
+    min-height: calc(100vh - 60px);
+    overflow-x: hidden;
+    touch-action: pan-y;
   }
 
   /* Single column on mobile */
