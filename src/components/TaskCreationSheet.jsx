@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Zap, Rocket, Skull, Leaf, X, Calendar, Clock, Sliders } from 'lucide-react';
 import useStore from '../store/useStore';
 import { getCurrencySymbol } from '../utils/currency';
+import { getEisenhowerQuadrant } from '../utils/eisenhower';
 
 const TASK_TYPES = [
   { id: 'normal',     icon: Zap,    name: 'Normal',     desc: 'Weighted task',    color: 'normal' },
