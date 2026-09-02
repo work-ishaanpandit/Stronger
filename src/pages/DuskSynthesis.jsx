@@ -5,6 +5,7 @@ import useStore from '../store/useStore';
 import TaskAuditModal from '../components/TaskAuditModal';
 import ReflectionPanel from '../components/ReflectionPanel';
 import { isDateEditable } from '../engine/rollover';
+import { getCurrencySymbol } from '../utils/currency';
 
 const TODAY = format(new Date(), 'yyyy-MM-dd');
 const YESTERDAY = format(subDays(new Date(TODAY + 'T00:00:00'), 1), 'yyyy-MM-dd');
@@ -55,6 +56,7 @@ export default function DuskSynthesis() {
   const dailyLogs = useStore((s) => s.dailyLogs);
   const earnings = useStore((s) => s.earnings);
   const processRollovers = useStore((s) => s.processRollovers);
+  const settings = useStore((s) => s.settings);
 
   const initDay = useStore((s) => s.initDay);
 
@@ -69,6 +71,7 @@ export default function DuskSynthesis() {
   const tasks = getTasksForDate(duskDate);
   const log = dailyLogs[duskDate] ?? {};
   const todayEarnings = earnings[duskDate];
+  const currencySymbol = getCurrencySymbol(todayEarnings?.currency || settings?.currency);
   const locked = !isDateEditable(duskDate);
   const sortMode = SORT_MODES[sortModeIdx]; // F2
   const sortedTasks = sortTasks(tasks, sortMode.key); // F2
