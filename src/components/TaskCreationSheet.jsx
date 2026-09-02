@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Zap, Rocket, Skull, Leaf, X, Calendar, Clock } from 'lucide-react';
+import { Zap, Rocket, Skull, Leaf, X, Calendar, Clock, Sliders } from 'lucide-react';
 import useStore from '../store/useStore';
+import { getCurrencySymbol } from '../utils/currency';
 
 const TASK_TYPES = [
   { id: 'normal',     icon: Zap,    name: 'Normal',     desc: 'Weighted task',    color: 'normal' },
@@ -18,7 +19,12 @@ const DEFAULT_TASK = {
   weight: 1,
   damage: 50,
   recurrence: 'none',
-  // Two-step calendar sync
+  importance: 'Medium',
+  urgency: 'Medium',
+  priority: 'Medium',
+  deadline: '',
+  estimatedDuration: '',
+  notes: '',
   calendarSync: false,
   timeBlockEnabled: false,
   timeBlockStart: '09:00',
@@ -28,6 +34,8 @@ const DEFAULT_TASK = {
 export default function TaskCreationSheet({ date, task = null, onClose }) {
   const addTask    = useStore((s) => s.addTask);
   const updateTask = useStore((s) => s.updateTask);
+  const settings   = useStore((s) => s.settings);
+  const symbol     = getCurrencySymbol(settings?.currency);
 
   const isEdit = !!task;
   const [form, setForm] = useState(isEdit ? {
@@ -37,6 +45,12 @@ export default function TaskCreationSheet({ date, task = null, onClose }) {
     weight:           task.weight ?? 1,
     damage:           task.damage ?? 50,
     recurrence:       task.recurrence ?? 'none',
+    importance:       task.importance ?? 'Medium',
+    urgency:          task.urgency ?? 'Medium',
+    priority:         task.priority ?? 'Medium',
+    deadline:         task.deadline ? new Date(task.deadline).toISOString().slice(0, 16) : '',
+    estimatedDuration:task.estimatedDuration ?? '',
+    notes:            task.notes ?? task.auditNotes ?? '',
     calendarSync:     task.calendarSync ?? false,
     timeBlockEnabled: task.timeBlockEnabled ?? false,
     timeBlockStart:   task.timeBlockStart ?? '09:00',
@@ -59,6 +73,12 @@ export default function TaskCreationSheet({ date, task = null, onClose }) {
       weight:           form.type === 'normal' ? parseFloat(form.weight) || 1 : 1,
       damage:           form.type === 'kickass' ? parseFloat(form.damage) || 50 : 0,
       recurrence:       form.recurrence,
+      importance:       form.importance,
+      urgency:          form.urgency,
+      priority:         form.priority,
+      deadline:         form.deadline ? new Date(form.deadline).toISOString() : null,
+      estimatedDuration:form.estimatedDuration.trim() || null,
+      notes:            form.notes.trim() || null,
       calendarSync:     syncOn,
       timeBlockEnabled: blockOn,
       timeBlockStart:   blockOn ? form.timeBlockStart : null,
@@ -74,7 +94,7 @@ export default function TaskCreationSheet({ date, task = null, onClose }) {
     if (isEdit) {
       updateTask(date, task.id, payload);
     } else {
-      addTask(date, { ...payload, id: crypto.randomUUID(), logDate: date });
+      addTask(date, payload);
     }
     onClose();
   };
@@ -82,7 +102,6 @@ export default function TaskCreationSheet({ date, task = null, onClose }) {
   return (
     <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="sheet" role="dialog" aria-modal="true" aria-label={isEdit ? 'Edit Task' : 'New Task'}>
-
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--sp-5)' }}>
           <h2 className="text-xl font-semibold">{isEdit ? 'Edit Task' : 'New Task'}</h2>
@@ -116,6 +135,89 @@ export default function TaskCreationSheet({ date, task = null, onClose }) {
             onChange={(e) => set('tag', e.target.value)}
             maxLength={50}
           />
+        </div>
+
+        {/* Eisenhower Planning Fields (Importance & Urgency) */}
+        <div style={{
+          background: 'var(--elevated)',
+          padding: 'var(--sp-4)',
+          borderRadius: 'var(--radius-md)',
+          border: '1px solid var(--border)',
+          marginBottom: 'var(--sp-5)'
+        }}>
+          <div className="text-xs font-semibold uppercase tracking-wider text-tertiary" style={{ marginBottom: 'var(--sp-3)', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Sliders size={14} className="text-purple" />
+            Eisenhower & Planning Matrix
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--sp-3)', marginBottom: 'var(--sp-3)' }}>
+            <div>
+              <label htmlFor="task-importance" className="text-xs">Importance</label>
+              <select
+                id="task-importance"
+                className="input input-sm"
+                value={form.importance}
+                onChange={(e) => set('importance', e.target.value)}
+              >
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="task-urgency" className="text-xs">Urgency</label>
+              <select
+                id="task-urgency"
+                className="input input-sm"
+                value={form.urgency}
+                onChange={(e) => set('urgency', e.target.value)}
+              >
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="task-priority" className="text-xs">Priority</label>
+              <select
+                id="task-priority"
+                className="input input-sm"
+                value={form.priority}
+                onChange={(e) => set('priority', e.target.value)}
+              >
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--sp-3)' }}>
+            <div>
+              <label htmlFor="task-deadline" className="text-xs">Deadline (optional)</label>
+              <input
+                id="task-deadline"
+                type="datetime-local"
+                className="input input-sm"
+                value={form.deadline}
+                onChange={(e) => set('deadline', e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="task-duration" className="text-xs">Estimated Duration</label>
+              <input
+                id="task-duration"
+                type="text"
+                className="input input-sm"
+                placeholder="e.g. 30 min, 1 hr"
+                value={form.estimatedDuration}
+                onChange={(e) => set('estimatedDuration', e.target.value)}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Task Type */}
@@ -156,7 +258,7 @@ export default function TaskCreationSheet({ date, task = null, onClose }) {
         {/* Damage (Kickass only) */}
         {form.type === 'kickass' && (
           <div style={{ marginBottom: 'var(--sp-4)' }}>
-            <label htmlFor="task-damage">Damage Penalty (₹)</label>
+            <label htmlFor="task-damage">Damage Penalty ({symbol})</label>
             <input
               id="task-damage"
               type="number" min="0" step="10"
@@ -177,125 +279,98 @@ export default function TaskCreationSheet({ date, task = null, onClose }) {
             onChange={(e) => set('recurrence', e.target.value)}
           >
             {RECURRENCE.map((r) => (
-              <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>
+              <option key={r} value={r}>
+                {r === 'none' ? 'No repeat' : r.charAt(0).toUpperCase() + r.slice(1)}
+              </option>
             ))}
           </select>
         </div>
 
-        <div className="divider" />
-
-        {/* ── Calendar Sync (Step 1) ── */}
-        <div style={{ marginBottom: 'var(--sp-3)' }}>
-          <div
-            className="toggle-wrap"
-            onClick={() => {
-              const next = !form.calendarSync;
-              set('calendarSync', next);
-              // If turning sync off, also disable time block
-              if (!next) set('timeBlockEnabled', false);
-            }}
-            role="switch"
-            aria-checked={form.calendarSync}
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && set('calendarSync', !form.calendarSync)}
-          >
-            <div className={`toggle ${form.calendarSync ? 'on' : ''}`} />
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Calendar size={14} className={form.calendarSync ? 'text-blue' : 'text-tertiary'} />
-                <span className="text-sm font-medium">Sync to Calendar</span>
-              </div>
-              <div className="text-xs text-tertiary" style={{ marginTop: 2 }}>
-                Adds task as an all-day event in Apple Calendar
-              </div>
-            </div>
-          </div>
+        {/* Notes */}
+        <div style={{ marginBottom: 'var(--sp-5)' }}>
+          <label htmlFor="task-notes">Notes & Context (optional)</label>
+          <textarea
+            id="task-notes"
+            className="input"
+            style={{ height: 70, resize: 'vertical' }}
+            placeholder="Add relevant instructions, links, or notes..."
+            value={form.notes}
+            onChange={(e) => set('notes', e.target.value)}
+          />
         </div>
 
-        {/* ── Block Time (Step 2 — only visible when sync is ON) ── */}
-        {form.calendarSync && (
-          <div
-            style={{
-              marginLeft: 'var(--sp-5)',
-              borderLeft: '2px solid var(--border)',
-              paddingLeft: 'var(--sp-4)',
-              marginBottom: 'var(--sp-3)',
-            }}
-          >
-            {/* Block Time checkbox */}
-            <div
-              className="toggle-wrap"
-              style={{ marginBottom: form.timeBlockEnabled ? 'var(--sp-3)' : 0 }}
-              onClick={() => set('timeBlockEnabled', !form.timeBlockEnabled)}
-              role="switch"
-              aria-checked={form.timeBlockEnabled}
-              tabIndex={0}
-              onKeyDown={(e) => e.key === 'Enter' && set('timeBlockEnabled', !form.timeBlockEnabled)}
-            >
-              <div className={`toggle toggle-sm ${form.timeBlockEnabled ? 'on' : ''}`} />
+        {/* Two-Step Calendar Sync */}
+        <div style={{ marginBottom: 'var(--sp-5)', background: 'var(--bg)', padding: 'var(--sp-4)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: form.calendarSync ? 'var(--sp-3)' : 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+              <Calendar size={16} className="text-blue" />
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Clock size={13} className={form.timeBlockEnabled ? 'text-orange' : 'text-tertiary'} />
-                  <span className="text-sm">Block Time</span>
-                </div>
-                <div className="text-xs text-tertiary" style={{ marginTop: 2 }}>
-                  Reserve a specific time slot on the calendar
-                </div>
+                <div className="text-sm font-medium">Sync to External Calendar</div>
+                <div className="text-xs text-tertiary">Include in your .ics feed for Google Calendar / Apple Calendar</div>
               </div>
             </div>
-
-            {/* Time pickers — only when block time is ON */}
-            {form.timeBlockEnabled && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--sp-3)' }}>
-                <div>
-                  <label htmlFor="task-start">Start</label>
-                  <input
-                    id="task-start"
-                    type="time"
-                    className="input input-sm"
-                    value={form.timeBlockStart}
-                    onChange={(e) => set('timeBlockStart', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="task-end">End</label>
-                  <input
-                    id="task-end"
-                    type="time"
-                    className="input input-sm"
-                    value={form.timeBlockEnd}
-                    onChange={(e) => set('timeBlockEnd', e.target.value)}
-                  />
-                </div>
-              </div>
-            )}
+            <input
+              type="checkbox"
+              checked={form.calendarSync}
+              onChange={(e) => set('calendarSync', e.target.checked)}
+              style={{ width: 18, height: 18, cursor: 'pointer' }}
+            />
           </div>
-        )}
+
+          {form.calendarSync && (
+            <div style={{ paddingTop: 'var(--sp-3)', borderTop: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: form.timeBlockEnabled ? 'var(--sp-3)' : 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+                  <Clock size={16} className="text-purple" />
+                  <div>
+                    <div className="text-sm font-medium">Set Time Block</div>
+                    <div className="text-xs text-tertiary">Specify exact start/end times for calendar events</div>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={form.timeBlockEnabled}
+                  onChange={(e) => set('timeBlockEnabled', e.target.checked)}
+                  style={{ width: 18, height: 18, cursor: 'pointer' }}
+                />
+              </div>
+
+              {form.timeBlockEnabled && (
+                <div style={{ display: 'flex', gap: 'var(--sp-3)', marginTop: 'var(--sp-3)' }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: 11 }}>Start Time</label>
+                    <input
+                      type="time"
+                      className="input input-sm"
+                      value={form.timeBlockStart}
+                      onChange={(e) => set('timeBlockStart', e.target.value)}
+                    />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: 11 }}>End Time</label>
+                    <input
+                      type="time"
+                      className="input input-sm"
+                      value={form.timeBlockEnd}
+                      onChange={(e) => set('timeBlockEnd', e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="divider" />
 
-        <div style={{ display: 'flex', gap: 'var(--sp-3)' }}>
-          {isEdit && (
-            <button
-              className="btn"
-              style={{ flex: 1, border: '1px solid var(--red)', color: 'var(--red)', background: 'transparent' }}
-              onClick={() => {
-                useStore.getState().deleteTask(date, task.id);
-                onClose();
-              }}
-            >
-              Delete
-            </button>
-          )}
-          <button
-            className="btn btn-primary"
-            style={{ flex: 2 }}
-            onClick={handleSave}
-            disabled={!form.name.trim()}
-          >
-            {isEdit ? 'Save Changes' : 'Add Task'}
-          </button>
-        </div>
+        <button
+          className="btn btn-primary"
+          style={{ width: '100%' }}
+          onClick={handleSave}
+          disabled={!form.name.trim()}
+        >
+          {isEdit ? 'Save Changes' : 'Create Task'}
+        </button>
       </div>
     </div>
   );

@@ -11,6 +11,7 @@ import { ChevronLeft, ChevronRight, TrendingUp, BarChart2, Zap, LayoutDashboard,
 import useStore from '../store/useStore';
 import SettleUpModal from '../components/SettleUpModal';
 import AIInsightCard from '../components/AIInsightCard';
+import { getCurrencySymbol } from '../utils/currency';
 
 export default function ChronicleGrid() {
   const [viewMonth, setViewMonth] = useState(new Date());
@@ -29,6 +30,7 @@ export default function ChronicleGrid() {
   const getTasksHistory = useStore((s) => s.getTasksHistory);
   const coreDisciplines = useStore((s) => s.coreDisciplines);
   const getPendingRemuneration = useStore((s) => s.getPendingRemuneration);
+  const settings = useStore((s) => s.settings);
 
   const [showSettleModal, setShowSettleModal] = useState(false);
   const { totalPending, pendingDays } = getPendingRemuneration();
@@ -65,7 +67,7 @@ export default function ChronicleGrid() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h1 className="page-title">Chronicle Ledger</h1>
           <span className="badge badge-green" style={{ fontSize: 12 }}>
-            ₹{totalEarned.toFixed(0)} this month
+            {getCurrencySymbol(settings?.currency)}{totalEarned.toFixed(0)} this month
           </span>
         </div>
         <div className="page-subtitle">Your discipline arc — calendar, earnings, and trend analytics</div>
@@ -235,7 +237,7 @@ export default function ChronicleGrid() {
               {selectedEarnings && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 'var(--sp-3)', marginBottom: 'var(--sp-4)' }}>
                   <div className="stat-pill">
-                    <span className="stat-pill-value text-green">₹{selectedEarnings.R_calc.toFixed(0)}</span>
+                    <span className="stat-pill-value text-green">{getCurrencySymbol(selectedEarnings.currency || settings?.currency)}{selectedEarnings.R_calc.toFixed(0)}</span>
                     <span className="stat-pill-label">Remuneration</span>
                   </div>
                   <div className="stat-pill">
@@ -267,7 +269,7 @@ export default function ChronicleGrid() {
                   {pendingDays.length} unclaimed {pendingDays.length === 1 ? 'day' : 'days'}
                 </div>
                 <div className="text-3xl font-bold" style={{ color: 'var(--green)' }}>
-                  ₹{totalPending.toFixed(2)}
+                  {getCurrencySymbol(settings?.currency)}{totalPending.toFixed(2)}
                 </div>
               </div>
               <button 

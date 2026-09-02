@@ -219,7 +219,7 @@ export default function DuskSynthesis() {
                         <div className="task-meta">
                           {task.tag && <span>#{task.tag}</span>}
                           {task.type === 'normal' && <span>Weight: {task.weight}</span>}
-                          {task.type === 'kickass' && <span style={{ color: 'var(--red)' }}>Damage: ₹{task.damage}</span>}
+                          {task.type === 'kickass' && <span style={{ color: 'var(--red)' }}>Damage: {currencySymbol}{task.damage}</span>}
                           {task.type === 'power' && <span style={{ color: 'var(--purple)' }}><Rocket size={12} style={{display:'inline', verticalAlign:'middle', marginRight:2}}/> Multiplier</span>}
                           {task.status === 'partly_done' && (
                             <span style={{ color: 'var(--orange)' }}>{Math.round(task.completionPercentage * 100)}%</span>
@@ -248,14 +248,14 @@ export default function DuskSynthesis() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--sp-4)' }}>
                   <div>
                     <div className={`earnings-amount ${todayEarnings.R_calc === 0 ? 'negative' : todayEarnings.R_calc < 500 ? 'partial' : ''}`}>
-                      ₹{todayEarnings.R_calc.toFixed(2)}
+                      {currencySymbol}{todayEarnings.R_calc.toFixed(2)}
                     </div>
                   </div>
                   <div style={{ textAlign: 'right', fontSize: 13, color: 'var(--text-tertiary)', lineHeight: 1.8 }}>
-                    <div>Base ₹{todayEarnings.E_base.toFixed(0)}</div>
-                    <div>Damage -₹{todayEarnings.D_tot.toFixed(0)}</div>
+                    <div>Base {currencySymbol}{todayEarnings.E_base.toFixed(0)}</div>
+                    <div>Damage -{currencySymbol}{todayEarnings.D_tot.toFixed(0)}</div>
                     {todayEarnings.debtCarryover > 0 && (
-                      <div style={{ color: 'var(--red)' }}>Debt Carryover -₹{todayEarnings.debtCarryover.toFixed(0)}</div>
+                      <div style={{ color: 'var(--red)' }}>Debt Carryover -{currencySymbol}{todayEarnings.debtCarryover.toFixed(0)}</div>
                     )}
                     <div>Power {todayEarnings.M_pow.toFixed(2)}×</div>
                   </div>

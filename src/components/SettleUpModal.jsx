@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { X, CheckCircle, IndianRupee, RotateCcw } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import useStore from '../store/useStore';
+import { getCurrencySymbol } from '../utils/currency';
 
 // Conditional Feature Flag (default: turned off)
 const ENABLE_RESET_FEATURE = false;
@@ -10,7 +11,10 @@ export default function SettleUpModal({ onClose }) {
   const getPendingRemuneration = useStore((s) => s.getPendingRemuneration);
   const settleUp = useStore((s) => s.settleUp);
   const resetPendingBalance = useStore((s) => s.resetPendingBalance);
+  const settings = useStore((s) => s.settings);
   const { totalPending, pendingDays } = getPendingRemuneration();
+
+  const symbol = getCurrencySymbol(settings?.currency);
 
   const [actualAmount, setActualAmount] = useState(Math.max(0, totalPending).toFixed(2));
   const [submitting, setSubmitting] = useState(false);
@@ -33,20 +37,21 @@ export default function SettleUpModal({ onClose }) {
     
     return pendingDays.map(([date, data]) => {
       const pendingForDay = (data.R_calc || 0) - (data.amount_received || 0);
+      const daySymbol = getCurrencySymbol(data.currency || settings?.currency);
       
       if (settlingAll) {
-        return { date, pendingForDay, applied: pendingForDay, fullySettled: true };
+        return { date, pendingForDay, applied: pendingForDay, fullySettled: true, symbol: daySymbol };
       }
       
       if (pendingForDay <= 0) {
-        return { date, pendingForDay, applied: 0, fullySettled: false };
+        return { date, pendingForDay, applied: 0, fullySettled: false, symbol: daySymbol };
       }
       
       const applied = Math.min(pendingForDay, Math.max(0, remaining));
       remaining -= applied;
-      return { date, pendingForDay, applied, fullySettled: applied >= pendingForDay };
+      return { date, pendingForDay, applied, fullySettled: applied >= pendingForDay, symbol: daySymbol };
     });
-  }, [actualAmount, pendingDays, totalPending]);
+  }, [actualAmount, pendingDays, totalPending, settings?.currency]);
 
   const leftOver = Math.max(0, totalPending - (parseFloat(actualAmount) || 0));
 
@@ -77,7 +82,7 @@ export default function SettleUpModal({ onClose }) {
         <div className="modal-body">
           <div className="text-sm text-secondary" style={{ marginBottom: 'var(--sp-4)' }}>
             <strong>{pendingDays.length}</strong> days pending · Total outstanding:{' '}
-            <strong style={{ color: 'var(--green)' }}>₹{totalPending.toFixed(2)}</strong>
+            <strong style={{ color: 'var(--green)' }}>{symbol}{totalPending.toFixed(2)}</strong>
           </div>
 
           {ENABLE_RESET_FEATURE && isNegative && (
@@ -93,7 +98,7 @@ export default function SettleUpModal({ onClose }) {
                 Restarting Journaling Balance
               </div>
               <div className="text-xs text-secondary" style={{ lineHeight: 1.5 }}>
-                You currently have an accumulated negative balance of <strong>₹{totalPending.toFixed(2)}</strong>. You can reset your pending balance to <strong>₹0.00</strong> to start fresh for your new journaling period.
+                You currently have an accumulated negative balance of <strong>{symbol}{totalPending.toFixed(2)}</strong>. You can reset your pending balance to <strong>{symbol}0.00</strong> to start fresh for your new journaling period.
               </div>
               <button
                 type="button"
@@ -102,16 +107,16 @@ export default function SettleUpModal({ onClose }) {
                 onClick={handleReset}
                 disabled={submitting}
               >
-                {submitting ? 'Resetting...' : 'Reset Pending Balance to ₹0.00'}
+                {submitting ? 'Resetting...' : `Reset Pending Balance to ${symbol}0.00`}
               </button>
             </div>
           )}
 
           <form onSubmit={handleSubmit}>
             <div className="input-group" style={{ marginBottom: 'var(--sp-4)' }}>
-              <label className="input-label">Amount Received (₹)</label>
+              <label className="input-label">Amount Received ({symbol})</label>
               <div style={{ position: 'relative' }}>
-                <IndianRupee size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+                <span style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)', fontWeight: 600 }}>{symbol}</span>
                 <input
                   type="number"
                   className="input"
@@ -140,12 +145,12 @@ export default function SettleUpModal({ onClose }) {
                 <div className="text-xs text-tertiary" style={{ marginBottom: 'var(--sp-2)', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                   Allocation Preview (Oldest First)
                 </div>
-                {preview.map(({ date, pendingForDay, applied, fullySettled }) => (
+                {preview.map(({ date, pendingForDay, applied, fullySettled, symbol: daySym }) => (
                   <div key={date} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
                     <span className="text-tertiary">{format(parseISO(date), 'MMM d, yyyy')}</span>
-                    <span style={{ color: 'var(--text-secondary)' }}>Due ₹{pendingForDay.toFixed(2)}</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>Due {daySym}{pendingForDay.toFixed(2)}</span>
                     <span style={{ fontWeight: 600, minWidth: 70, textAlign: 'right', color: fullySettled ? 'var(--green)' : applied > 0 ? 'var(--orange)' : 'var(--text-quaternary)' }}>
-                      {applied > 0 ? `−₹${applied.toFixed(2)}` : '—'}
+                      {applied > 0 ? `−${daySym}${applied.toFixed(2)}` : '—'}
                     </span>
                   </div>
                 ))}
@@ -165,7 +170,7 @@ export default function SettleUpModal({ onClose }) {
               </span>
               {leftOver > 0 && (
                 <span style={{ fontWeight: 700, color: 'var(--orange)', fontSize: 16 }}>
-                  ₹{leftOver.toFixed(2)}
+                  {symbol}{leftOver.toFixed(2)}
                 </span>
               )}
             </div>

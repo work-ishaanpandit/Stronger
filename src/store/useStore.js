@@ -49,10 +49,36 @@ const useStore = create(
       activeTab: 'dawn',
       duskDate: todayStr(),
       calendarToken: null,
+      settings: {
+        currency: 'INR',
+        maxDailyRemuneration: 1000,
+      },
 
-      // ── Tab navigation ──────────────────────────────────────────────────────
+      // ── Tab navigation & Settings ───────────────────────────────────────────
       setActiveTab: (tab) => set({ activeTab: tab }),
       setDuskDate:  (date) => set({ duskDate: date }),
+      updateSettings: async ({ currency, maxDailyRemuneration }) => {
+        const numVal = Number(maxDailyRemuneration);
+        if (isNaN(numVal) || numVal <= 0) return { error: 'Invalid maximum daily remuneration' };
+        const curr = currency || 'INR';
+
+        set((state) => ({
+          settings: { currency: curr, maxDailyRemuneration: numVal }
+        }));
+
+        const user = await getUser();
+        if (user) {
+          await supabase.from('profiles').upsert({
+            id: user.id,
+            currency: curr,
+            max_daily_remuneration: numVal,
+          }, { onConflict: 'id' });
+        }
+
+        const today = todayStr();
+        get().recalcEarnings(today);
+        return { success: true };
+      },
 
       // ── Supabase: Fetch all data for logged-in user ─────────────────────────
       fetchFromSupabase: async () => {
@@ -64,7 +90,7 @@ const useStore = create(
           supabase.from('tasks').select('*').eq('user_id', user.id),
           supabase.from('core_disciplines').select('*').eq('user_id', user.id),
           supabase.from('earnings').select('*').eq('user_id', user.id),
-          supabase.from('profiles').select('calendar_token').eq('id', user.id).maybeSingle(),
+          supabase.from('profiles').select('calendar_token, currency, max_daily_remuneration').eq('id', user.id).maybeSingle(),
         ]);
 
         if (logsRes.error || tasksRes.error || cdRes.error || earnRes.error) return;
@@ -81,17 +107,27 @@ const useStore = create(
 
         const tasks = {};
         tasksRes.data.forEach(t => {
-          if (!tasks[t.log_date]) tasks[t.log_date] = [];
-          tasks[t.log_date].push({
+          const dKey = t.log_date || 'unassigned';
+          if (!tasks[dKey]) tasks[dKey] = [];
+          tasks[dKey].push({
             id: t.id, name: t.name, tag: t.tag, type: t.type,
             weight: t.weight, damage: t.damage, recurrence: t.recurrence,
             status: t.status, completionPercentage: t.completion_percentage,
-            logDate: t.log_date, originalDate: t.original_date,
+            logDate: t.log_date || null, originalDate: t.original_date || t.log_date || null,
             calendarSync: t.calendar_sync, timeBlockEnabled: t.time_block_enabled,
             timeBlockStart: t.time_block_start, timeBlockEnd: t.time_block_end,
             hasBonus: t.has_bonus, delayCount: t.delay_count,
             isCoreDiscipline: t.is_core_discipline, coreDisciplineId: t.core_discipline_id,
             auditNotes: t.audit_notes, postponedToDate: t.postponed_to_date || null,
+            deadline: t.deadline || null,
+            importance: t.importance || 'Medium',
+            urgency: t.urgency || 'Medium',
+            priority: t.priority || 'Medium',
+            estimatedDuration: t.estimated_duration || null,
+            notes: t.notes || null,
+            createdAt: t.created_at || null,
+            completedAt: t.completed_at || null,
+            plannedDate: t.planned_date || t.log_date || null,
           });
         });
 
@@ -102,6 +138,8 @@ const useStore = create(
             P_potential: e.p_potential, D_tot: e.d_tot, M_pow: e.m_pow,
             newDebt: e.new_debt, claimed: e.claimed,
             amount_received: e.amount_received || 0,
+            currency: e.currency || 'INR',
+            maxDailyRemuneration: e.max_daily_remuneration != null ? Number(e.max_daily_remuneration) : 1000,
           };
         });
 
@@ -116,7 +154,19 @@ const useStore = create(
         });
 
         const calendarToken = profileRes.data?.calendar_token ?? null;
-        set({ dailyLogs, tasks: mergedTasks, coreDisciplines: cdRes.data || [], earnings, calendarToken });
+        const userCurrency = profileRes.data?.currency || get().settings?.currency || 'INR';
+        const userMaxDaily = profileRes.data?.max_daily_remuneration != null
+          ? Number(profileRes.data.max_daily_remuneration)
+          : (get().settings?.maxDailyRemuneration || 1000);
+
+        set({
+          dailyLogs,
+          tasks: mergedTasks,
+          coreDisciplines: cdRes.data || [],
+          earnings,
+          calendarToken,
+          settings: { currency: userCurrency, maxDailyRemuneration: userMaxDaily }
+        });
 
         // Migrate last 7 days to the independent negative model
         const today = new Date();
@@ -132,17 +182,26 @@ const useStore = create(
           const user = await getUser();
           if (!user) return;
           const { error } = await supabase.from('tasks').upsert({
-            id: task.id, user_id: user.id, log_date: task.logDate,
+            id: task.id, user_id: user.id, log_date: task.logDate || null,
             name: task.name, tag: task.tag, type: task.type,
             weight: task.weight, damage: task.damage, recurrence: task.recurrence,
             status: task.status, completion_percentage: task.completionPercentage ?? 0,
-            original_date: task.originalDate || task.logDate, delay_count: task.delayCount || 0,
+            original_date: task.originalDate || task.logDate || todayStr(), delay_count: task.delayCount || 0,
             calendar_sync: task.calendarSync || false,
             time_block_enabled: task.timeBlockEnabled || false,
             time_block_start: task.timeBlockStart, time_block_end: task.timeBlockEnd,
             has_bonus: task.hasBonus || false, is_core_discipline: task.isCoreDiscipline || false,
             core_discipline_id: task.coreDisciplineId || null, audit_notes: task.auditNotes || '',
             postponed_to_date: task.postponedToDate || null,
+            deadline: task.deadline || null,
+            importance: task.importance || 'Medium',
+            urgency: task.urgency || 'Medium',
+            priority: task.priority || 'Medium',
+            estimated_duration: task.estimatedDuration || null,
+            notes: task.notes || null,
+            created_at: task.createdAt || new Date().toISOString(),
+            completed_at: task.completedAt || null,
+            planned_date: task.plannedDate || task.logDate || null,
           });
           if (error) {
             console.error('Upsert task error:', error);
@@ -183,6 +242,7 @@ const useStore = create(
       syncEarningsToSupabase: async (date, earningsData) => {
         const user = await getUser();
         if (!user) return;
+        const { settings } = get();
         await supabase.from('earnings').upsert({
           date, user_id: user.id,
           r_calc: earningsData.R_calc ?? 0,
@@ -198,6 +258,8 @@ const useStore = create(
           negative_carryover: earningsData.newDebt ?? 0,
           claimed: earningsData.claimed ?? false,
           amount_received: earningsData.amount_received ?? 0,
+          currency: earningsData.currency || settings?.currency || 'INR',
+          max_daily_remuneration: earningsData.maxDailyRemuneration || settings?.maxDailyRemuneration || 1000,
         });
       },
 
@@ -354,36 +416,121 @@ const useStore = create(
       },
 
       // ── Task CRUD ────────────────────────────────────────────────────────────
-      getTasksForDate: (date) => (get().tasks[date] ?? []).filter(t => t.status !== 'cancelled'),
+      getTasksForDate: (date) => (get().tasks[date] ?? []).filter(t => t && t.status !== 'cancelled'),
+
+      getTaskBasket: () => {
+        const { tasks } = get();
+        const allTasks = Object.values(tasks).flat();
+        const seen = new Set();
+        const result = [];
+        for (const t of allTasks) {
+          if (t && t.id && !seen.has(t.id) && t.status !== 'cancelled') {
+            seen.add(t.id);
+            result.push(t);
+          }
+        }
+        return result;
+      },
+
+      assignTaskToToday: (taskId, targetDate = todayStr()) => {
+        const { tasks, syncTaskToSupabase, initDay, recalcEarnings } = get();
+        
+        let targetTask = null;
+        let oldKey = null;
+        for (const [key, tList] of Object.entries(tasks)) {
+          const found = (tList ?? []).find((t) => t && t.id === taskId);
+          if (found) {
+            targetTask = found;
+            oldKey = key;
+            break;
+          }
+        }
+
+        if (!targetTask) return;
+
+        initDay(targetDate);
+
+        const updatedTask = {
+          ...targetTask,
+          logDate: targetDate,
+          plannedDate: targetDate,
+          originalDate: targetTask.originalDate || targetDate,
+        };
+
+        set((state) => {
+          const oldList = (state.tasks[oldKey] ?? []).filter((t) => t && t.id !== taskId);
+          const newList = [...(state.tasks[targetDate] ?? []).filter((t) => t && t.id !== taskId), updatedTask];
+          const newTasks = {
+            ...state.tasks,
+            [oldKey]: oldList,
+            [targetDate]: newList,
+          };
+          syncToICSServer(newTasks);
+          return { tasks: newTasks };
+        });
+
+        syncTaskToSupabase(updatedTask);
+        recalcEarnings(targetDate);
+      },
 
       addTask: (date, task) => {
         const id = task.id ?? crypto.randomUUID();
-        const fullTask = { ...task, id, logDate: date };
+        const dKey = date || 'unassigned';
+        const fullTask = {
+          importance: 'Medium',
+          urgency: 'Medium',
+          priority: 'Medium',
+          createdAt: new Date().toISOString(),
+          ...task,
+          id,
+          logDate: date || null,
+          plannedDate: task.plannedDate || date || null,
+        };
         set((state) => {
           const newTasks = {
             ...state.tasks,
-            [date]: [...(state.tasks[date] ?? []), fullTask],
+            [dKey]: [...(state.tasks[dKey] ?? []), fullTask],
           };
           syncToICSServer(newTasks);
           return { tasks: newTasks };
         });
         get().syncTaskToSupabase(fullTask);
-        get().recalcEarnings(date);
+        if (date) {
+          get().recalcEarnings(date);
+        }
       },
 
       updateTask: (date, taskId, updates) => {
+        const dKey = date || 'unassigned';
         set((state) => {
-          const updatedTasks = (state.tasks[date] ?? []).map(t => {
-            if (t.id !== taskId) return t;
-            const updated = { ...t, ...updates };
-            get().syncTaskToSupabase(updated);
-            return updated;
-          });
-          const newTasks = { ...state.tasks, [date]: updatedTasks };
+          let foundInDKey = (state.tasks[dKey] ?? []).some(t => t && t.id === taskId);
+          let newTasks = { ...state.tasks };
+
+          if (foundInDKey) {
+            const updatedTasks = (state.tasks[dKey] ?? []).map(t => {
+              if (t.id !== taskId) return t;
+              const updated = { ...t, ...updates };
+              get().syncTaskToSupabase(updated);
+              return updated;
+            });
+            newTasks[dKey] = updatedTasks;
+          } else {
+            for (const [k, tList] of Object.entries(state.tasks)) {
+              if ((tList ?? []).some(t => t && t.id === taskId)) {
+                newTasks[k] = tList.map(t => {
+                  if (t.id !== taskId) return t;
+                  const updated = { ...t, ...updates };
+                  get().syncTaskToSupabase(updated);
+                  return updated;
+                });
+                break;
+              }
+            }
+          }
           syncToICSServer(newTasks);
           return { tasks: newTasks };
         });
-        get().recalcEarnings(date);
+        if (date) get().recalcEarnings(date);
       },
 
       deleteTask: async (date, taskId) => {
@@ -515,25 +662,42 @@ const useStore = create(
 
       // ── Earnings Engine ───────────────────────────────────────────────────────
       recalcEarnings: (date) => {
-        const { tasks } = get();
+        const { tasks, earnings, settings } = get();
         const dayTasks = tasks[date] ?? [];
-        const result = calculateDayEarnings(dayTasks, 0); // Ignore carryover debt in daily calculations
+        const existing = earnings[date] ?? {};
+        const today = todayStr();
+
+        // For past dates that already have a snapshotted maxDailyRemuneration, preserve it.
+        // For today or new dates, use the current active user settings.
+        const dayMaxDaily = (date < today && existing.maxDailyRemuneration != null)
+          ? Number(existing.maxDailyRemuneration)
+          : Number(settings?.maxDailyRemuneration || 1000);
+
+        const dayCurrency = (date < today && existing.currency != null)
+          ? existing.currency
+          : (settings?.currency || 'INR');
+
+        const result = calculateDayEarnings(dayTasks, 0, dayMaxDaily);
 
         set((state) => {
-          const existing = state.earnings[date] ?? {};
+          const existingEarn = state.earnings[date] ?? {};
           // Optimization: skip updating if values are already correct
           if (
-            existing.R_calc === result.R_calc &&
-            existing.D_tot === result.D_tot &&
-            existing.E_base === result.E_base &&
-            existing.M_pow === result.M_pow
+            existingEarn.R_calc === result.R_calc &&
+            existingEarn.D_tot === result.D_tot &&
+            existingEarn.E_base === result.E_base &&
+            existingEarn.M_pow === result.M_pow &&
+            existingEarn.maxDailyRemuneration === dayMaxDaily &&
+            existingEarn.currency === dayCurrency
           ) {
             return {};
           }
           const updated = {
             ...result,
-            claimed: existing.claimed ?? false,
-            amount_received: existing.amount_received ?? 0,
+            maxDailyRemuneration: dayMaxDaily,
+            currency: dayCurrency,
+            claimed: existingEarn.claimed ?? false,
+            amount_received: existingEarn.amount_received ?? 0,
           };
           get().syncEarningsToSupabase(date, updated);
           return { earnings: { ...state.earnings, [date]: updated } };

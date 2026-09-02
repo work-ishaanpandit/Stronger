@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Target, X, Zap, Rocket, Skull, Leaf } from 'lucide-react';
 import useStore from '../store/useStore';
+import { getCurrencySymbol } from '../utils/currency';
 
 const TASK_TYPES = [
   { id: 'normal',     icon: Zap,    name: 'Normal',     desc: 'Weighted task',    color: 'normal' },
@@ -11,6 +12,8 @@ const TASK_TYPES = [
 
 export default function DisciplineCreationSheet({ onClose }) {
   const addCoreDiscipline = useStore((s) => s.addCoreDiscipline);
+  const settings = useStore((s) => s.settings);
+  const symbol = getCurrencySymbol(settings?.currency);
 
   const [form, setForm] = useState({
     name: '',
@@ -118,7 +121,7 @@ export default function DisciplineCreationSheet({ onClose }) {
 
         {form.type === 'kickass' && (
           <div style={{ marginBottom: 'var(--sp-5)' }}>
-            <label htmlFor="disc-damage">Damage Penalty (₹)</label>
+            <label htmlFor="disc-damage">Damage Penalty ({symbol})</label>
             <input
               id="disc-damage"
               type="number" min="0" step="10"

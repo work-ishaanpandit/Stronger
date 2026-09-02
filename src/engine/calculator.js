@@ -15,7 +15,9 @@
  * @param {number} debtCarryover - Negative balance carried from previous day
  * @returns {Object} Detailed breakdown of the calculation
  */
-export function calculateDayEarnings(tasks = [], debtCarryover = 0) {
+export function calculateDayEarnings(tasks = [], debtCarryover = 0, maxDailyRemuneration = 1000) {
+  const maxDaily = typeof maxDailyRemuneration === 'number' && maxDailyRemuneration > 0 ? maxDailyRemuneration : 1000;
+
   // Filter out soft-deleted 'cancelled' tasks so they don't affect the math
   // Postponed tasks MUST remain in the denominator. Removing them shrinks the day's scope
   // and artificially increases the percentage of completed tasks, leading to inflated earnings.
@@ -35,9 +37,9 @@ export function calculateDayEarnings(tasks = [], debtCarryover = 0) {
 
   const P_potential = normalTasks.reduce((sum, t) => sum + (t.weight ?? 1), 0);
 
-  // ─── Step 2: Base Earnings (capped at ₹1000) ────────────────────────────
+  // ─── Step 2: Base Earnings (capped at maxDailyRemuneration) ─────────────
   const E_base =
-    P_potential > 0 ? Math.min((P_base / P_potential) * 1000, 1000) : 0;
+    P_potential > 0 ? Math.min((P_base / P_potential) * maxDaily, maxDaily) : 0;
 
   // ─── Step 3: Kickass Damage ─────────────────────────────────────────────
   const D_tot = kickassTasks.reduce((sum, t) => {
@@ -71,6 +73,7 @@ export function calculateDayEarnings(tasks = [], debtCarryover = 0) {
     debtCarryover: round2(debtCarryover),
     R_calc: round2(R_calc),
     newDebt: round2(newDebt),
+    maxDailyRemuneration: round2(maxDaily),
     // Derived helpers
     completionRatio: P_potential > 0 ? round2(P_base / P_potential) : 0,
     powerBoost: round2(M_pow - 1),
@@ -80,8 +83,8 @@ export function calculateDayEarnings(tasks = [], debtCarryover = 0) {
 /**
  * Recalculate when a specific task changes — returns updated earnings object.
  */
-export function recalculate(tasks, debtCarryover = 0) {
-  return calculateDayEarnings(tasks, debtCarryover);
+export function recalculate(tasks, debtCarryover = 0, maxDailyRemuneration = 1000) {
+  return calculateDayEarnings(tasks, debtCarryover, maxDailyRemuneration);
 }
 
 function round2(n) {

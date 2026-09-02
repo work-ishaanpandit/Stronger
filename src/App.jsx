@@ -6,6 +6,7 @@ import AuthGate from './components/AuthGate';
 import SideNav from './components/SideNav';
 import MobileHeader from './components/MobileHeader';
 import DawnAlignment from './pages/DawnAlignment';
+import TaskBasket from './pages/TaskBasket';
 import DuskSynthesis from './pages/DuskSynthesis';
 import ChronicleGrid from './pages/ChronicleGrid';
 
@@ -80,6 +81,7 @@ export default function App() {
       {/* Main content area */}
       <div className="main-content">
         {activeTab === 'dawn'      && <DawnAlignment />}
+        {activeTab === 'basket'    && <TaskBasket />}
         {activeTab === 'dusk'      && <DuskSynthesis />}
         {activeTab === 'chronicle' && <ChronicleGrid />}
       </div>

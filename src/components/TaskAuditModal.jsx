@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { CheckCircle, Activity, XCircle, FastForward, Calendar, X, Lock } from 'lucide-react';
 import useStore from '../store/useStore';
+import { getCurrencySymbol } from '../utils/currency';
 
 const STATUS_OPTIONS = [
   { value: 'finished',           label: 'Finished',          color: 'var(--green)', icon: CheckCircle },
@@ -13,6 +14,8 @@ const STATUS_OPTIONS = [
 
 export default function TaskAuditModal({ task, date, locked, onClose }) {
   const updateTask = useStore((s) => s.updateTask);
+  const settings = useStore((s) => s.settings);
+  const symbol = getCurrencySymbol(settings?.currency);
 
   const [status, setStatus] = useState(task.status ?? 'missed');
   const [completion, setCompletion] = useState(
@@ -158,7 +161,7 @@ export default function TaskAuditModal({ task, date, locked, onClose }) {
               <span className="badge badge-purple">2× Multiplier</span>
             )}
             {task.type === 'kickass' && (
-              <span className="badge badge-red">Damage: ₹{task.damage}</span>
+              <span className="badge badge-red">Damage: {symbol}{task.damage}</span>
             )}
             {task.delayCount > 0 && (
               <span className="badge badge-yellow">Delay ×{task.delayCount}</span>
