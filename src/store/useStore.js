@@ -181,7 +181,8 @@ const useStore = create(
         try {
           const user = await getUser();
           if (!user) return;
-          const { error } = await supabase.from('tasks').upsert({
+          
+          const fullPayload = {
             id: task.id, user_id: user.id, log_date: task.logDate || null,
             name: task.name, tag: task.tag, type: task.type,
             weight: task.weight, damage: task.damage, recurrence: task.recurrence,
@@ -202,14 +203,37 @@ const useStore = create(
             created_at: task.createdAt || new Date().toISOString(),
             completed_at: task.completedAt || null,
             planned_date: task.plannedDate || task.logDate || null,
-          });
+          };
+
+          const { error } = await supabase.from('tasks').upsert(fullPayload);
+          
           if (error) {
-            console.error('Upsert task error:', error);
-            alert('DB Update Error: ' + error.message);
+            // Fallback retry if remote DB table has not run the latest migration yet
+            if (error.message?.includes('column') || error.message?.includes('schema cache')) {
+              const basePayload = {
+                id: task.id, user_id: user.id, log_date: task.logDate || null,
+                name: task.name, tag: task.tag, type: task.type,
+                weight: task.weight, damage: task.damage, recurrence: task.recurrence,
+                status: task.status, completion_percentage: task.completionPercentage ?? 0,
+                original_date: task.originalDate || task.logDate || todayStr(), delay_count: task.delayCount || 0,
+                calendar_sync: task.calendarSync || false,
+                time_block_enabled: task.timeBlockEnabled || false,
+                time_block_start: task.timeBlockStart, time_block_end: task.timeBlockEnd,
+                has_bonus: task.hasBonus || false, is_core_discipline: task.isCoreDiscipline || false,
+                core_discipline_id: task.coreDisciplineId || null, audit_notes: task.auditNotes || '',
+                postponed_to_date: task.postponedToDate || null,
+              };
+              const retryRes = await supabase.from('tasks').upsert(basePayload);
+              if (retryRes.error) {
+                console.error('Retry upsert error:', retryRes.error);
+              }
+            } else {
+              console.error('Upsert task error:', error);
+              alert('DB Update Error: ' + error.message);
+            }
           }
         } catch (err) {
           console.error('sync exception:', err);
-          alert('Sync Exception: ' + err.message);
         }
       },
 
@@ -420,21 +444,25 @@ const useStore = create(
 
       getTaskBasket: () => {
         const { tasks } = get();
+        const todayDateStr = format(new Date(), 'yyyy-MM-dd');
         const allTasks = Object.values(tasks).flat();
         const seen = new Set();
         const result = [];
         for (const t of allTasks) {
-          if (
-            t && 
-            t.id && 
-            !seen.has(t.id) && 
-            t.status !== 'cancelled' &&
-            !t.isCoreDiscipline &&
-            !t.coreDisciplineId
-          ) {
-            seen.add(t.id);
-            result.push(t);
-          }
+          if (!t || !t.id || seen.has(t.id)) continue;
+          seen.add(t.id);
+
+          // 1. Exclude completed or cancelled tasks
+          if (t.status === 'finished' || t.status === 'cancelled') continue;
+
+          // 2. Exclude core disciplines
+          if (t.isCoreDiscipline || t.coreDisciplineId) continue;
+
+          // 3. Exclude past historical tasks (tasks logged before today)
+          const taskDate = t.logDate || t.plannedDate;
+          if (taskDate && taskDate < todayDateStr) continue;
+
+          result.push(t);
         }
         return result;
       },

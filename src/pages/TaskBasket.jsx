@@ -1,11 +1,13 @@
 import { useState, useMemo } from 'react';
-import { format, parseISO } from 'date-fns';
-import { Plus, Search, Filter, ArrowUpDown, RefreshCw, Layers, Calendar, AlertTriangle, CheckCircle, Clock, Grid, List as ListIcon, Zap, Rocket, Skull, Leaf, ArrowRight } from 'lucide-react';
+import { format } from 'date-fns';
+import { Plus, Search, ArrowUpDown, RefreshCw, Layers, Clock, Grid, List as ListIcon, Zap, Rocket, Skull, Leaf } from 'lucide-react';
 import useStore from '../store/useStore';
 import TaskCreationSheet from '../components/TaskCreationSheet';
 import TaskDetailModal from '../components/TaskDetailModal';
 import { getEisenhowerQuadrant, filterTasks, sortTasks, isTaskOverdue, isTaskDueSoon, QUADRANTS } from '../utils/eisenhower';
 import { getCurrencySymbol } from '../utils/currency';
+
+let globalIsDragging = false;
 
 export default function TaskBasket() {
   const getTaskBasket = useStore((s) => s.getTaskBasket);
@@ -94,7 +96,7 @@ export default function TaskBasket() {
     <main className="page anim-fade" style={{ maxWidth: '100%' }}>
       {/* Page Header */}
       <div className="page-header">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--sp-3)' }}>
           <div>
             <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <Layers className="text-purple" size={26} />
@@ -249,6 +251,7 @@ export default function TaskBasket() {
           tasks={processedTasks}
           onSelectTask={(task) => setSelectedTask(task)}
           onAddToToday={(task) => assignTaskToToday(task.id, todayStr)}
+          onMoveQuadrant={handleMoveToQuadrant}
           currencySymbol={currencySymbol}
           todayStr={todayStr}
         />
@@ -303,25 +306,35 @@ function MetricCard({ label, count, active, onClick, color }) {
 }
 
 function EisenhowerMatrixView({ quadrants, onSelectTask, onAddToToday, onMoveQuadrant, currencySymbol, todayStr }) {
+  const [activeDragTarget, setActiveDragTarget] = useState(null);
+
   return (
     <div style={{
       display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(290px, 1fr))',
       gap: 'var(--sp-4)',
       marginBottom: 'var(--sp-6)'
     }}>
       {Object.values(QUADRANTS).map((qInfo) => {
         const list = quadrants[qInfo.key] || [];
+        const isHovered = activeDragTarget === qInfo.key;
 
         const handleDragOver = (e) => {
           e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          if (activeDragTarget !== qInfo.key) setActiveDragTarget(qInfo.key);
+        };
+
+        const handleDragLeave = (e) => {
+          if (e.currentTarget.contains(e.relatedTarget)) return;
+          setActiveDragTarget(null);
         };
 
         const handleDrop = (e) => {
           e.preventDefault();
+          setActiveDragTarget(null);
           const taskId = e.dataTransfer.getData('text/plain');
           if (taskId) {
-            // Find task in any quadrant and move
             const allTasks = Object.values(quadrants).flat();
             const found = allTasks.find((t) => t.id === taskId);
             if (found) onMoveQuadrant(found, qInfo.key);
@@ -332,15 +345,17 @@ function EisenhowerMatrixView({ quadrants, onSelectTask, onAddToToday, onMoveQua
           <div
             key={qInfo.key}
             onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             style={{
-              background: qInfo.bg,
-              border: `1px solid ${qInfo.border}`,
+              background: isHovered ? 'rgba(10, 132, 255, 0.08)' : qInfo.bg,
+              border: isHovered ? `2px dashed ${qInfo.color}` : `1px solid ${qInfo.border}`,
               borderRadius: 'var(--radius-md)',
               padding: 'var(--sp-4)',
               display: 'flex',
               flexDirection: 'column',
-              minHeight: '280px'
+              minHeight: '280px',
+              transition: 'all 0.15s ease'
             }}
           >
             {/* Quadrant Header */}
@@ -370,6 +385,7 @@ function EisenhowerMatrixView({ quadrants, onSelectTask, onAddToToday, onMoveQua
                     task={task}
                     onSelect={() => onSelectTask(task)}
                     onAddToToday={() => onAddToToday(task)}
+                    onMoveQuadrant={(targetKey) => onMoveQuadrant(task, targetKey)}
                     currencySymbol={currencySymbol}
                     todayStr={todayStr}
                   />
@@ -383,7 +399,7 @@ function EisenhowerMatrixView({ quadrants, onSelectTask, onAddToToday, onMoveQua
   );
 }
 
-function TaskListView({ tasks, onSelectTask, onAddToToday, currencySymbol, todayStr }) {
+function TaskListView({ tasks, onSelectTask, onAddToToday, onMoveQuadrant, currencySymbol, todayStr }) {
   if (tasks.length === 0) {
     return (
       <div className="card text-center" style={{ padding: 'var(--sp-8)' }}>
@@ -400,6 +416,7 @@ function TaskListView({ tasks, onSelectTask, onAddToToday, currencySymbol, today
           task={task}
           onSelect={() => onSelectTask(task)}
           onAddToToday={() => onAddToToday(task)}
+          onMoveQuadrant={(targetKey) => onMoveQuadrant(task, targetKey)}
           currencySymbol={currencySymbol}
           todayStr={todayStr}
           isListView
@@ -409,26 +426,38 @@ function TaskListView({ tasks, onSelectTask, onAddToToday, currencySymbol, today
   );
 }
 
-function TaskCard({ task, onSelect, onAddToToday, currencySymbol, todayStr, isListView = false }) {
+function TaskCard({ task, onSelect, onAddToToday, onMoveQuadrant, currencySymbol, todayStr, isListView = false }) {
   const isAssignedToToday = task.logDate === todayStr || task.plannedDate === todayStr;
   const overdue = isTaskOverdue(task);
   const dueSoon = isTaskDueSoon(task, 7);
   const qInfo = getEisenhowerQuadrant(task.importance, task.urgency);
 
   const handleDragStart = (e) => {
+    globalIsDragging = true;
     e.dataTransfer.setData('text/plain', task.id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragEnd = () => {
+    setTimeout(() => { globalIsDragging = false; }, 100);
+  };
+
+  const handleClick = (e) => {
+    if (globalIsDragging) return;
+    onSelect();
   };
 
   return (
     <div
       draggable
       onDragStart={handleDragStart}
-      onClick={onSelect}
+      onDragEnd={handleDragEnd}
+      onClick={handleClick}
       className="card task-row-hover"
       style={{
         padding: isListView ? 'var(--sp-3) var(--sp-4)' : 'var(--sp-3)',
         borderRadius: 'var(--radius-sm)',
-        cursor: 'pointer',
+        cursor: 'grab',
         background: 'var(--bg)',
         border: '1px solid var(--border)',
         display: 'flex',
@@ -470,12 +499,32 @@ function TaskCard({ task, onSelect, onAddToToday, currencySymbol, todayStr, isLi
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: isListView ? 'flex-end' : 'space-between', marginTop: isListView ? 0 : 4 }}>
-        {!isListView && (
-          <span className="text-xs text-tertiary font-medium">
-            {qInfo.emoji} {qInfo.label}
-          </span>
-        )}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: isListView ? 'flex-end' : 'space-between', marginTop: isListView ? 0 : 4, flexWrap: 'wrap' }}>
+        {/* Quadrant Quick Shift Pills for 1-tap movement on mobile & touch */}
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+          {Object.values(QUADRANTS).map((q) => (
+            <button
+              key={q.key}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onMoveQuadrant) onMoveQuadrant(q.key);
+              }}
+              className="btn btn-ghost"
+              style={{
+                padding: '2px 5px',
+                height: 22,
+                fontSize: 10,
+                background: qInfo.key === q.key ? q.bg : 'transparent',
+                border: `1px solid ${qInfo.key === q.key ? q.color : 'var(--border)'}`,
+                color: qInfo.key === q.key ? q.color : 'var(--text-tertiary)',
+                borderRadius: 'var(--radius-sm)'
+              }}
+              title={`Move to ${q.label}`}
+            >
+              {q.emoji}
+            </button>
+          ))}
+        </div>
 
         {!isAssignedToToday ? (
           <button
@@ -484,7 +533,7 @@ function TaskCard({ task, onSelect, onAddToToday, currencySymbol, todayStr, isLi
               e.stopPropagation();
               onAddToToday();
             }}
-            style={{ fontSize: 11, padding: '2px 8px', color: 'var(--blue)' }}
+            style={{ fontSize: 11, padding: '2px 8px', color: 'var(--blue)', height: 26 }}
             title="Add to today's Dawn Alignment"
           >
             <Plus size={13} /> Add to Today
