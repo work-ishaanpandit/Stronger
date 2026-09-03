@@ -22,6 +22,8 @@ export default function App() {
   const accountStatus      = useStore((s) => s.accountStatus);
   const subscriptionStatus = useStore((s) => s.subscriptionStatus);
   const accessType         = useStore((s) => s.accessType);
+  const profileState       = useStore((s) => s.profileState);
+  const profileError       = useStore((s) => s.profileError);
 
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -68,6 +70,7 @@ export default function App() {
     };
   }, []);
 
+  // 1. Auth Loading State
   if (loading) {
     return (
       <div className="auth-gate" style={{ alignItems: 'center', justifyContent: 'center' }}>
@@ -76,7 +79,40 @@ export default function App() {
     );
   }
 
+  // 2. Unauthenticated User Gate
   if (!session) return <AuthGate />;
+
+  // 3. Profile Loading State
+  if (profileState === 'loading') {
+    return (
+      <div className="auth-gate" style={{ alignItems: 'center', justifyContent: 'center' }}>
+        <div className="auth-spinner" />
+      </div>
+    );
+  }
+
+  // 4. Profile Fetch Error State — DO NOT COLLAPSE INTO PENDING ACTIVATION
+  if (profileState === 'error') {
+    return (
+      <div className="auth-gate" style={{ alignItems: 'center', justifyContent: 'center' }}>
+        <div className="auth-card" style={{ maxWidth: 440, textAlign: 'center' }}>
+          <div className="text-red font-bold text-lg" style={{ marginBottom: 8 }}>
+            Unable to Fetch Profile
+          </div>
+          <div className="text-xs text-tertiary" style={{ marginBottom: 16 }}>
+            {profileError || 'A database connection error occurred. Please retry.'}
+          </div>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => fetchFromSupabase()}
+            style={{ width: '100%' }}
+          >
+            Retry Connection
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // ── Access Control Gatekeeper Evaluation ──────────────────────────────────
   const isAdmin = userRole === 'admin' || accessType === 'ADMIN';
@@ -88,7 +124,7 @@ export default function App() {
     return <AccountSuspendedScreen user={session.user} />;
   }
 
-  // 2. Pending Activation check (applies to new subscribers)
+  // 2. Pending Activation check (applies ONLY to new confirmed subscribers)
   if (!isAdmin && isSubscriber && accountStatus === 'PENDING_APPROVAL') {
     return (
       <ActivationGateScreen

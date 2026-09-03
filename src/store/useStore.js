@@ -51,9 +51,11 @@ const useStore = create(
       calendarToken: null,
       userProfile: null,
       userRole: 'user',
-      accountStatus: 'PENDING_APPROVAL',
+      accountStatus: 'ACTIVE',
       subscriptionStatus: 'NONE',
-      accessType: 'SUBSCRIBER',
+      accessType: 'GRANDFATHERED',
+      profileState: 'loading', // 'loading' | 'loaded' | 'not_found' | 'error'
+      profileError: null,
       settings: {
         currency: 'INR',
         maxDailyRemuneration: 1000,
@@ -90,6 +92,8 @@ const useStore = create(
         const user = await getUser();
         if (!user) return;
 
+        set({ profileState: 'loading', profileError: null });
+
         const [logsRes, tasksRes, cdRes, earnRes, profileRes] = await Promise.all([
           supabase.from('daily_logs').select('*').eq('user_id', user.id),
           supabase.from('tasks').select('*').eq('user_id', user.id),
@@ -98,9 +102,23 @@ const useStore = create(
           supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
         ]);
 
-        if (logsRes.error || tasksRes.error || cdRes.error || earnRes.error) return;
+        // CRITICAL FIX: Handle profile query error explicitly. NEVER assume missing profile on DB error!
+        if (profileRes.error) {
+          console.error('Database error fetching profile:', profileRes.error);
+          set({
+            profileState: 'error',
+            profileError: profileRes.error.message || 'Failed to fetch user profile from Supabase'
+          });
+          return;
+        }
+
+        if (logsRes.error || tasksRes.error || cdRes.error || earnRes.error) {
+          console.error('Database error fetching user logs/tasks:', logsRes.error || tasksRes.error || cdRes.error || earnRes.error);
+        }
 
         let prof = profileRes.data;
+
+        // Genuine new user creation ONLY when query succeeded with data === null
         if (!prof) {
           const isPrimaryAdmin = user.email?.toLowerCase() === 'work.ishaanpandit@gmail.com';
           const newProf = {
@@ -112,16 +130,24 @@ const useStore = create(
             subscription_status: isPrimaryAdmin ? 'ACTIVE' : 'NONE',
             access_type: isPrimaryAdmin ? 'ADMIN' : 'SUBSCRIBER',
           };
-          const { data: created } = await supabase.from('profiles').insert(newProf).select().single();
+
+          const { data: created, error: createErr } = await supabase.from('profiles').insert(newProf).select().single();
+          if (createErr) {
+            console.error('Error creating profile for new user:', createErr);
+            set({ profileState: 'error', profileError: createErr.message });
+            return;
+          }
           prof = created || newProf;
         }
 
         set({
           userProfile: prof,
           userRole: prof.role || 'user',
-          accountStatus: prof.account_status || 'PENDING_APPROVAL',
+          accountStatus: prof.account_status || 'ACTIVE',
           subscriptionStatus: prof.subscription_status || 'NONE',
-          accessType: prof.access_type || 'SUBSCRIBER',
+          accessType: prof.access_type || 'GRANDFATHERED',
+          profileState: 'loaded',
+          profileError: null,
           calendarToken: prof.calendar_token || null,
           settings: {
             currency: prof.currency || 'INR',

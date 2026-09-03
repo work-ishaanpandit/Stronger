@@ -13,6 +13,7 @@ export default function AdminDashboard() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [subFilter, setSubFilter] = useState('all');
 
+  const [queryError, setQueryError] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
 
   useEffect(() => {
@@ -21,16 +22,25 @@ export default function AdminDashboard() {
 
   const fetchAdminData = async () => {
     setLoading(true);
+    setQueryError(null);
+
     // 1. Fetch all profiles
-    const { data: profilesData } = await supabase
+    const { data: profilesData, error: profErr } = await supabase
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false });
 
     // 2. Fetch all payment records
-    const { data: paymentsData } = await supabase
+    const { data: paymentsData, error: payErr } = await supabase
       .from('payment_records')
       .select('*');
+
+    if (profErr) {
+      console.error('Error fetching admin profiles:', profErr);
+      setQueryError(profErr.message || 'Database error fetching user profiles');
+      setLoading(false);
+      return;
+    }
 
     if (profilesData) setUsers(profilesData);
     if (paymentsData) setPayments(paymentsData);
@@ -224,6 +234,14 @@ export default function AdminDashboard() {
         <div className="card text-center" style={{ padding: 'var(--sp-8)' }}>
           <div className="auth-spinner" style={{ margin: '0 auto var(--sp-3)' }} />
           <div className="text-sm text-tertiary">Loading registered users...</div>
+        </div>
+      ) : queryError ? (
+        <div className="card text-center" style={{ padding: 'var(--sp-8)', border: '1px solid var(--red)' }}>
+          <div className="text-red font-bold text-base" style={{ marginBottom: 4 }}>Failed to Fetch Registered Users</div>
+          <div className="text-xs text-tertiary" style={{ marginBottom: 16 }}>{queryError}</div>
+          <button className="btn btn-sm btn-primary" onClick={fetchAdminData}>
+            Retry Query
+          </button>
         </div>
       ) : filteredUsers.length === 0 ? (
         <div className="card text-center" style={{ padding: 'var(--sp-8)' }}>
