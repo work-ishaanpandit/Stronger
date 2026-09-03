@@ -1,25 +1,52 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Flame, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function AuthGate() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const currentNonceRef = useRef(null);
 
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 
+  // Helper to generate matching raw and SHA-256 hashed nonces for GIS and Supabase Auth
+  const generateNonce = async () => {
+    const rawNonce = crypto.randomUUID();
+    const encoder = new TextEncoder();
+    const encodedNonce = encoder.encode(rawNonce);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', encodedNonce);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashedNonce = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+    return [rawNonce, hashedNonce];
+  };
+
   useEffect(() => {
-    if (googleClientId && window.google?.accounts?.id) {
-      try {
-        window.google.accounts.id.initialize({
-          client_id: googleClientId,
-          callback: handleGoogleIdTokenResponse,
-          auto_select: false,
-        });
-      } catch (e) {
-        console.warn('GIS initialization notice:', e);
+    let isMounted = true;
+
+    async function initGIS() {
+      if (googleClientId && window.google?.accounts?.id) {
+        try {
+          const [rawNonce, hashedNonce] = await generateNonce();
+          if (!isMounted) return;
+          currentNonceRef.current = rawNonce;
+
+          window.google.accounts.id.initialize({
+            client_id: googleClientId,
+            callback: handleGoogleIdTokenResponse,
+            nonce: hashedNonce,
+            auto_select: false,
+          });
+        } catch (e) {
+          console.warn('GIS initialization notice:', e);
+        }
       }
     }
+
+    initGIS();
+
+    return () => {
+      isMounted = false;
+    };
   }, [googleClientId]);
 
   const handleGoogleIdTokenResponse = async (response) => {
@@ -28,10 +55,16 @@ export default function AuthGate() {
     setError(null);
 
     try {
-      const { data, error: authErr } = await supabase.auth.signInWithIdToken({
+      const payload = {
         provider: 'google',
         token: response.credential,
-      });
+      };
+
+      if (currentNonceRef.current) {
+        payload.nonce = currentNonceRef.current;
+      }
+
+      const { data, error: authErr } = await supabase.auth.signInWithIdToken(payload);
 
       if (authErr) {
         console.error('Supabase signInWithIdToken error:', authErr);
