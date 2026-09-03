@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import useStore from '../store/useStore';
 import { supabase } from '../lib/supabase';
-import { Sun, Moon, LayoutDashboard, Calendar as CalendarIcon, LogOut, Settings as SettingsIcon, Layers } from 'lucide-react';
+import { Sun, Moon, LayoutDashboard, Calendar as CalendarIcon, LogOut, Settings as SettingsIcon, Layers, Shield } from 'lucide-react';
 import CalendarLinkPanel from './CalendarLinkPanel';
 import SettingsModal from './SettingsModal';
 
@@ -13,12 +13,17 @@ const TABS = [
   { id: 'chronicle', icon: LayoutDashboard, label: 'Chronicle',        desc: 'Track your arc' },
 ];
 
+const ADMIN_TAB = { id: 'admin', icon: Shield, label: 'Admin', desc: 'User & Subscriptions' };
+
 export default function SideNav({ session, isMobileOpen, onCloseMobile }) {
   const activeTab    = useStore((s) => s.activeTab);
   const setActiveTab = useStore((s) => s.setActiveTab);
+  const userRole     = useStore((s) => s.userRole);
   const today        = format(new Date(), 'EEE, MMM d');
   const [showCalPanel, setShowCalPanel] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+
+  const navTabs = userRole === 'admin' ? [...TABS, ADMIN_TAB] : TABS;
 
   const user = session?.user;
   const avatarUrl   = user?.user_metadata?.avatar_url;
@@ -53,7 +58,7 @@ export default function SideNav({ session, isMobileOpen, onCloseMobile }) {
 
         {/* Navigation Links */}
         <nav className="nav-links">
-          {TABS.map((tab) => {
+          {navTabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             return (

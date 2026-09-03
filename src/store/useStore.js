@@ -49,6 +49,11 @@ const useStore = create(
       activeTab: 'dawn',
       duskDate: todayStr(),
       calendarToken: null,
+      userProfile: null,
+      userRole: 'user',
+      accountStatus: 'PENDING_APPROVAL',
+      subscriptionStatus: 'NONE',
+      accessType: 'SUBSCRIBER',
       settings: {
         currency: 'INR',
         maxDailyRemuneration: 1000,
@@ -90,10 +95,39 @@ const useStore = create(
           supabase.from('tasks').select('*').eq('user_id', user.id),
           supabase.from('core_disciplines').select('*').eq('user_id', user.id),
           supabase.from('earnings').select('*').eq('user_id', user.id),
-          supabase.from('profiles').select('calendar_token, currency, max_daily_remuneration').eq('id', user.id).maybeSingle(),
+          supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
         ]);
 
         if (logsRes.error || tasksRes.error || cdRes.error || earnRes.error) return;
+
+        let prof = profileRes.data;
+        if (!prof) {
+          const isPrimaryAdmin = user.email?.toLowerCase() === 'work.ishaanpandit@gmail.com';
+          const newProf = {
+            id: user.id,
+            email: user.email,
+            full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email,
+            role: isPrimaryAdmin ? 'admin' : 'user',
+            account_status: isPrimaryAdmin ? 'ACTIVE' : 'PENDING_APPROVAL',
+            subscription_status: isPrimaryAdmin ? 'ACTIVE' : 'NONE',
+            access_type: isPrimaryAdmin ? 'ADMIN' : 'SUBSCRIBER',
+          };
+          const { data: created } = await supabase.from('profiles').insert(newProf).select().single();
+          prof = created || newProf;
+        }
+
+        set({
+          userProfile: prof,
+          userRole: prof.role || 'user',
+          accountStatus: prof.account_status || 'PENDING_APPROVAL',
+          subscriptionStatus: prof.subscription_status || 'NONE',
+          accessType: prof.access_type || 'SUBSCRIBER',
+          calendarToken: prof.calendar_token || null,
+          settings: {
+            currency: prof.currency || 'INR',
+            maxDailyRemuneration: prof.max_daily_remuneration || 1000,
+          }
+        });
 
         const dailyLogs = {};
         logsRes.data.forEach(log => {
