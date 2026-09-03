@@ -1,14 +1,82 @@
-import { Flame } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Flame, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function AuthGate() {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+
+  useEffect(() => {
+    if (googleClientId && window.google?.accounts?.id) {
+      try {
+        window.google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: handleGoogleIdTokenResponse,
+          auto_select: false,
+        });
+      } catch (e) {
+        console.warn('GIS initialization notice:', e);
+      }
+    }
+  }, [googleClientId]);
+
+  const handleGoogleIdTokenResponse = async (response) => {
+    if (!response?.credential) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { data, error: authErr } = await supabase.auth.signInWithIdToken({
+        provider: 'google',
+        token: response.credential,
+      });
+
+      if (authErr) {
+        console.error('Supabase signInWithIdToken error:', authErr);
+        setError(authErr.message);
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error('GIS Auth exception:', err);
+      setError(err.message || 'Failed to authenticate with Google');
+      setLoading(false);
+    }
+  };
+
   const handleGoogleSignIn = async () => {
-    await supabase.auth.signInWithOAuth({
+    setError(null);
+
+    // 1. Try GIS (Google Identity Services) popup if Client ID is configured
+    if (googleClientId && window.google?.accounts?.id) {
+      setLoading(true);
+      window.google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          // If One-tap prompt was dismissed or blocked, trigger standard Supabase OAuth fallback
+          fallbackOAuth();
+        }
+      });
+      return;
+    }
+
+    // 2. Fallback to standard Supabase OAuth redirect if GIS Client ID is not explicitly set in env
+    fallbackOAuth();
+  };
+
+  const fallbackOAuth = async () => {
+    setLoading(true);
+    const { error: oAuthErr } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: window.location.origin,
       },
     });
+
+    if (oAuthErr) {
+      setError(oAuthErr.message);
+      setLoading(false);
+    }
   };
 
   return (
@@ -27,13 +95,33 @@ export default function AuthGate() {
         <h1 className="auth-title">Stronger</h1>
         <p className="auth-subtitle">Your discipline, measured.</p>
 
+        {/* Error Alert */}
+        {error && (
+          <div style={{
+            background: 'rgba(255, 69, 58, 0.1)',
+            border: '1px solid rgba(255, 69, 58, 0.3)',
+            color: 'var(--red)',
+            borderRadius: 'var(--radius-md)',
+            padding: 'var(--sp-3)',
+            fontSize: 13,
+            marginBottom: 'var(--sp-3)',
+            textAlign: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8
+          }}>
+            <AlertCircle size={15} /> {error}
+          </div>
+        )}
+
         {/* Divider */}
         <div className="auth-divider">
           <span>Sign in to continue</span>
         </div>
 
         {/* Google Sign-In Button */}
-        <button className="btn-google" onClick={handleGoogleSignIn}>
+        <button className="btn-google" onClick={handleGoogleSignIn} disabled={loading}>
           {/* Google G logo (SVG) */}
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
             <path d="M17.64 9.2045C17.64 8.5663 17.5827 7.9527 17.4764 7.3636H9V10.845H13.8436C13.635 11.97 13.0009 12.9231 12.0477 13.5613V15.8195H14.9564C16.6582 14.2527 17.64 11.9454 17.64 9.2045Z" fill="#4285F4"/>
@@ -41,7 +129,7 @@ export default function AuthGate() {
             <path d="M3.96409 10.71C3.78409 10.17 3.68182 9.5931 3.68182 9C3.68182 8.4068 3.78409 7.83 3.96409 7.29V4.9581H0.957275C0.347727 6.1731 0 7.5477 0 9C0 10.4522 0.347727 11.8268 0.957275 13.0418L3.96409 10.71Z" fill="#FBBC05"/>
             <path d="M9 3.5795C10.3214 3.5795 11.5077 4.0336 12.4405 4.9254L15.0218 2.344C13.4632 0.8918 11.4259 0 9 0C5.48182 0 2.43818 2.0168 0.957275 4.9581L3.96409 7.29C4.67182 5.1627 6.65591 3.5795 9 3.5795Z" fill="#EA4335"/>
           </svg>
-          Continue with Google
+          {loading ? 'Authenticating...' : 'Continue with Google'}
         </button>
 
         <p className="auth-footnote">
