@@ -63,6 +63,19 @@ const useStore = create(
 
       // ── Tab navigation & Settings ───────────────────────────────────────────
       setActiveTab: (tab) => set({ activeTab: tab }),
+      resetStore: () => set({
+        dailyLogs: {},
+        tasks: {},
+        coreDisciplines: [],
+        earnings: {},
+        userProfile: null,
+        userRole: 'user',
+        accountStatus: 'ACTIVE',
+        subscriptionStatus: 'NONE',
+        accessType: 'GRANDFATHERED',
+        profileState: 'loading',
+        profileError: null,
+      }),
       setDuskDate:  (date) => set({ duskDate: date }),
       updateSettings: async ({ currency, maxDailyRemuneration }) => {
         const numVal = Number(maxDailyRemuneration);
@@ -90,9 +103,20 @@ const useStore = create(
       // ── Supabase: Fetch all data for logged-in user ─────────────────────────
       fetchFromSupabase: async () => {
         const user = await getUser();
-        if (!user) return;
+        if (!user) {
+          get().resetStore();
+          return;
+        }
 
-        set({ profileState: 'loading', profileError: null });
+        // Clear previous user data state before fetching new user data
+        set({
+          dailyLogs: {},
+          tasks: {},
+          coreDisciplines: [],
+          earnings: {},
+          profileState: 'loading',
+          profileError: null
+        });
 
         const [logsRes, tasksRes, cdRes, earnRes, profileRes] = await Promise.all([
           supabase.from('daily_logs').select('*').eq('user_id', user.id),

@@ -11,6 +11,7 @@ export default function MobileHeader({ session, onMenuClick }) {
 
   const handleSignOut = async () => {
     if (confirm('Are you sure you want to sign out?')) {
+      useStore.getState().resetStore();
       await supabase.auth.signOut();
     }
   };

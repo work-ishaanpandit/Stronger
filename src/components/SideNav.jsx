@@ -30,6 +30,7 @@ export default function SideNav({ session, isMobileOpen, onCloseMobile }) {
   const displayName = user?.user_metadata?.full_name || user?.email || 'User';
 
   const handleSignOut = async () => {
+    useStore.getState().resetStore();
     await supabase.auth.signOut();
   };
 

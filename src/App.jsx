@@ -43,7 +43,11 @@ export default function App() {
     // 2. Listen for sign-in / sign-out events
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (session) fetchFromSupabase();
+      if (session) {
+        fetchFromSupabase();
+      } else {
+        useStore.getState().resetStore();
+      }
     });
 
     // 3. Set up Realtime Subscription for database updates
