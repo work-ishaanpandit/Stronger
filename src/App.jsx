@@ -13,6 +13,9 @@ import AdminDashboard from './pages/AdminDashboard';
 import ActivationGateScreen from './components/ActivationGateScreen';
 import SubscriptionGateScreen from './components/SubscriptionGateScreen';
 import AccountSuspendedScreen from './components/AccountSuspendedScreen';
+import LandingPage from './pages/LandingPage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import TermsOfServicePage from './pages/TermsOfServicePage';
 
 export default function App() {
   const activeTab          = useStore((s) => s.activeTab);
@@ -28,6 +31,9 @@ export default function App() {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showAuthGate, setShowAuthGate] = useState(false);
+
+  const pathname = window.location.pathname;
 
   useEffect(() => {
     // 1. Check for existing session on mount
@@ -74,6 +80,16 @@ export default function App() {
     };
   }, []);
 
+  // Public Route: Privacy Policy
+  if (pathname === '/privacy') {
+    return <PrivacyPolicyPage />;
+  }
+
+  // Public Route: Terms of Service
+  if (pathname === '/terms') {
+    return <TermsOfServicePage />;
+  }
+
   // 1. Auth Loading State
   if (loading) {
     return (
@@ -84,7 +100,10 @@ export default function App() {
   }
 
   // 2. Unauthenticated User Gate
-  if (!session) return <AuthGate />;
+  if (!session) {
+    if (showAuthGate) return <AuthGate />;
+    return <LandingPage onLaunchApp={() => setShowAuthGate(true)} />;
+  }
 
   // 3. Profile Loading State
   if (profileState === 'loading') {

@@ -47,6 +47,12 @@ export default function AuthGate() {
         <p className="auth-footnote">
           Your data is private and encrypted. Only you can access it.
         </p>
+
+        <div style={{ marginTop: 'var(--sp-4)', display: 'flex', gap: 16, justifyContent: 'center', fontSize: 12, color: 'var(--text-tertiary)' }}>
+          <a href="/privacy" style={{ color: 'var(--text-secondary)' }}>Privacy Policy</a>
+          <span>•</span>
+          <a href="/terms" style={{ color: 'var(--text-secondary)' }}>Terms of Service</a>
+        </div>
       </div>
     </div>
   );
