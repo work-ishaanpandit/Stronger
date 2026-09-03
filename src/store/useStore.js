@@ -102,9 +102,34 @@ const useStore = create(
           supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
         ]);
 
-        // CRITICAL FIX: Handle profile query error explicitly. NEVER assume missing profile on DB error!
+        // Handle profile query error with graceful fallback for schema cache transitions
         if (profileRes.error) {
-          console.error('Database error fetching profile:', profileRes.error);
+          console.warn('Database error fetching full profile, trying basic profile fallback:', profileRes.error);
+          const { data: basicProf, error: basicErr } = await supabase
+            .from('profiles')
+            .select('id, calendar_token, currency, max_daily_remuneration')
+            .eq('id', user.id)
+            .maybeSingle();
+
+          if (!basicErr && basicProf) {
+            const isPrimaryAdmin = user.email?.toLowerCase() === 'work.ishaanpandit@gmail.com';
+            set({
+              userProfile: basicProf,
+              userRole: isPrimaryAdmin ? 'admin' : 'user',
+              accountStatus: 'ACTIVE',
+              subscriptionStatus: 'ACTIVE',
+              accessType: isPrimaryAdmin ? 'ADMIN' : 'GRANDFATHERED',
+              profileState: 'loaded',
+              profileError: null,
+              calendarToken: basicProf.calendar_token || null,
+              settings: {
+                currency: basicProf.currency || 'INR',
+                maxDailyRemuneration: basicProf.max_daily_remuneration || 1000,
+              }
+            });
+            return;
+          }
+
           set({
             profileState: 'error',
             profileError: profileRes.error.message || 'Failed to fetch user profile from Supabase'
