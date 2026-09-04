@@ -83,6 +83,20 @@ export default function SideNav({ session, isMobileOpen, onCloseMobile }) {
 
         {/* Footer Tools & User Profile */}
         <div className="nav-footer">
+          {/* Settings button */}
+          {user && (
+            <div style={{ marginBottom: 'var(--sp-2)' }}>
+              <button
+                className="btn btn-sm btn-ghost"
+                onClick={() => setShowSettings(true)}
+                style={{ width: '100%', justifyContent: 'flex-start', gap: 8, fontSize: 12 }}
+              >
+                <SettingsIcon size={13} />
+                Settings
+              </button>
+            </div>
+          )}
+
           {/* Calendar subscription toggle */}
           {user && (
             <div style={{ marginBottom: 'var(--sp-2)' }}>
@@ -116,15 +130,26 @@ export default function SideNav({ session, isMobileOpen, onCloseMobile }) {
                   {displayName.split(' ')[0]}
                 </div>
               </div>
-              <button
-                className="btn btn-ghost btn-icon"
-                onClick={handleSignOut}
-                title="Sign out"
-                aria-label="Sign out"
-                style={{ width: 32, height: 32, minWidth: 32, minHeight: 32, padding: 0, borderRadius: '50%', flexShrink: 0 }}
-              >
-                <LogOut size={14} />
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <button
+                  className="btn btn-ghost btn-icon"
+                  onClick={() => setShowSettings(true)}
+                  title="Settings"
+                  aria-label="Settings"
+                  style={{ width: 32, height: 32, minWidth: 32, minHeight: 32, padding: 0, borderRadius: '50%', flexShrink: 0 }}
+                >
+                  <SettingsIcon size={14} />
+                </button>
+                <button
+                  className="btn btn-ghost btn-icon"
+                  onClick={handleSignOut}
+                  title="Sign out"
+                  aria-label="Sign out"
+                  style={{ width: 32, height: 32, minWidth: 32, minHeight: 32, padding: 0, borderRadius: '50%', flexShrink: 0 }}
+                >
+                  <LogOut size={14} />
+                </button>
+              </div>
             </div>
           )}
         </div>
