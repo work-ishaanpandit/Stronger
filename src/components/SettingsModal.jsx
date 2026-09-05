@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Settings as SettingsIcon, Sliders, Check } from 'lucide-react';
 import useStore from '../store/useStore';
 import { CURRENCIES } from '../utils/currency';
@@ -40,9 +41,9 @@ export default function SettingsModal({ onClose }) {
     }
   };
 
-  return (
-    <div className="modal-overlay">
-      <div className="modal-content" style={{ maxWidth: '480px' }}>
+  return createPortal(
+    <div className="modal-overlay" style={{ zIndex: 999999 }}>
+      <div className="modal-content" style={{ maxWidth: '480px', zIndex: 1000000 }}>
         <div className="modal-header">
           <h2 className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <SettingsIcon size={20} className="text-blue" />
@@ -153,6 +154,7 @@ export default function SettingsModal({ onClose }) {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
