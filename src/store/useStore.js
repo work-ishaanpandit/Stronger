@@ -306,7 +306,7 @@ const useStore = create(
             } catch (_) {}
           }
 
-          const fullPayload = {
+          let payload = {
             id: task.id, user_id: user.id, log_date: task.logDate || null,
             name: task.name, tag: task.tag, type: task.type,
             weight: task.weight, damage: task.damage, recurrence: task.recurrence,
@@ -333,54 +333,35 @@ const useStore = create(
             is_day_only: task.isDayOnly ?? false,
           };
 
-          const { error } = await supabase.from('tasks').upsert(fullPayload);
-          
-          if (error) {
-            console.warn('Full payload upsert failed, retrying standard payload:', error.message);
-            // Tier 2: Standard planning payload with Eisenhower Matrix fields
-            const standardPayload = {
-              id: task.id, user_id: user.id, log_date: task.logDate || null,
-              name: task.name, tag: task.tag, type: task.type,
-              weight: task.weight, damage: task.damage, recurrence: task.recurrence,
-              status: task.status, completion_percentage: task.completionPercentage ?? 0,
-              original_date: task.originalDate || task.logDate || null, delay_count: task.delayCount || 0,
-              calendar_sync: task.calendarSync || false,
-              time_block_enabled: task.timeBlockEnabled || false,
-              time_block_start: task.timeBlockStart || null, time_block_end: task.timeBlockEnd || null,
-              has_bonus: task.hasBonus || false, is_core_discipline: task.isCoreDiscipline || false,
-              core_discipline_id: task.coreDisciplineId || null, audit_notes: task.auditNotes || '',
-              postponed_to_date: task.postponedToDate || null,
-              deadline: task.deadline || null,
-              importance: task.importance || 'Medium',
-              urgency: task.urgency || 'Medium',
-              priority: task.priority || 'Medium',
-              estimated_duration: task.estimatedDuration || null,
-              notes: task.notes || null,
-              created_at: task.createdAt || new Date().toISOString(),
-              completed_at: task.completedAt || null,
-              planned_date: task.plannedDate || task.logDate || null,
-            };
+          for (let attempt = 0; attempt < 8; attempt++) {
+            const { error } = await supabase.from('tasks').upsert(payload);
+            if (!error) break;
 
-            const retryRes = await supabase.from('tasks').upsert(standardPayload);
-            if (retryRes.error) {
-              console.warn('Standard payload upsert failed, retrying legacy core payload:', retryRes.error.message);
-              // Tier 3: Core legacy payload
-              const legacyPayload = {
-                id: task.id, user_id: user.id, log_date: task.logDate || null,
-                name: task.name, tag: task.tag, type: task.type,
-                weight: task.weight, damage: task.damage, recurrence: task.recurrence,
-                status: task.status, completion_percentage: task.completionPercentage ?? 0,
-                original_date: task.originalDate || task.logDate || null, delay_count: task.delayCount || 0,
-                calendar_sync: task.calendarSync || false,
-                time_block_enabled: task.timeBlockEnabled || false,
-                has_bonus: task.hasBonus || false, is_core_discipline: task.isCoreDiscipline || false,
-                core_discipline_id: task.coreDisciplineId || null,
-                created_at: task.createdAt || new Date().toISOString(),
-              };
-              const legacyRes = await supabase.from('tasks').upsert(legacyPayload);
-              if (legacyRes.error) {
-                console.error('All upsert attempts failed:', legacyRes.error);
-              }
+            console.warn(`Task sync attempt ${attempt + 1} failed:`, error.message);
+            const match = error.message?.match(/Could not find the '([^']+)' column/i);
+            if (match && match[1]) {
+              const badCol = match[1];
+              console.warn(`Stripping missing column '${badCol}' and retrying...`);
+              delete payload[badCol];
+              continue;
+            }
+
+            if (attempt === 0) {
+              delete payload.is_basket_task;
+              delete payload.is_day_only;
+              delete payload.committed_percentage;
+              delete payload.activity_log;
+            } else if (attempt === 1) {
+              delete payload.created_at;
+              delete payload.planned_date;
+            } else if (attempt === 2) {
+              delete payload.time_block_start;
+              delete payload.time_block_end;
+              delete payload.audit_notes;
+              delete payload.estimated_duration;
+            } else {
+              console.error('All task upsert attempts failed:', error);
+              break;
             }
           }
         } catch (err) {
@@ -415,27 +396,59 @@ const useStore = create(
       },
 
       syncEarningsToSupabase: async (date, earningsData) => {
-        const user = await getUser();
-        if (!user) return;
-        const { settings } = get();
-        await supabase.from('earnings').upsert({
-          date, user_id: user.id,
-          r_calc: earningsData.R_calc ?? 0,
-          e_base: earningsData.E_base ?? 0,
-          p_base: earningsData.P_base ?? 0,
-          p_potential: earningsData.P_potential ?? 0,
-          d_tot: earningsData.D_tot ?? 0,
-          m_pow: earningsData.M_pow ?? 1,
-          new_debt: earningsData.newDebt ?? 0,
-          amount_earned: earningsData.R_calc ?? 0,
-          multiplier_applied: earningsData.M_pow ?? 1,
-          total_damage: earningsData.D_tot ?? 0,
-          negative_carryover: earningsData.newDebt ?? 0,
-          claimed: earningsData.claimed ?? false,
-          amount_received: earningsData.amount_received ?? 0,
-          currency: earningsData.currency || settings?.currency || 'INR',
-          max_daily_remuneration: earningsData.maxDailyRemuneration || settings?.maxDailyRemuneration || 1000,
-        });
+        try {
+          const user = await getUser();
+          if (!user) return;
+          const { settings } = get();
+
+          let payload = {
+            date, user_id: user.id,
+            r_calc: earningsData.R_calc ?? 0,
+            e_base: earningsData.E_base ?? 0,
+            p_base: earningsData.P_base ?? 0,
+            p_potential: earningsData.P_potential ?? 0,
+            d_tot: earningsData.D_tot ?? 0,
+            m_pow: earningsData.M_pow ?? 1,
+            new_debt: earningsData.newDebt ?? 0,
+            amount_earned: earningsData.R_calc ?? 0,
+            multiplier_applied: earningsData.M_pow ?? 1,
+            total_damage: earningsData.D_tot ?? 0,
+            negative_carryover: earningsData.newDebt ?? 0,
+            claimed: earningsData.claimed ?? false,
+            amount_received: earningsData.amount_received ?? 0,
+            currency: earningsData.currency || settings?.currency || 'INR',
+            max_daily_remuneration: earningsData.maxDailyRemuneration || settings?.maxDailyRemuneration || 1000,
+          };
+
+          for (let attempt = 0; attempt < 5; attempt++) {
+            const { error } = await supabase.from('earnings').upsert(payload, { onConflict: 'date,user_id' });
+            if (!error) break;
+
+            console.warn(`Earnings sync attempt ${attempt + 1} failed:`, error.message);
+            const match = error.message?.match(/Could not find the '([^']+)' column/i);
+            if (match && match[1]) {
+              delete payload[match[1]];
+              continue;
+            }
+
+            if (attempt === 0) {
+              delete payload.currency;
+              delete payload.max_daily_remuneration;
+            } else if (attempt === 1) {
+              delete payload.r_calc;
+              delete payload.e_base;
+              delete payload.p_base;
+              delete payload.p_potential;
+              delete payload.d_tot;
+              delete payload.m_pow;
+              delete payload.new_debt;
+            } else {
+              break;
+            }
+          }
+        } catch (err) {
+          console.error('syncEarnings exception:', err);
+        }
       },
 
       // ── Daily Log CRUD ───────────────────────────────────────────────────────
