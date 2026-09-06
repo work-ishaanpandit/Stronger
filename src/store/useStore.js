@@ -296,6 +296,16 @@ const useStore = create(
           const user = await getUser();
           if (!user) return;
           
+          if (task.logDate && task.logDate !== 'unassigned') {
+            try {
+              await supabase.from('daily_logs').upsert({
+                date: task.logDate,
+                user_id: user.id,
+                approval_state: 'draft',
+              }, { onConflict: 'date,user_id' });
+            } catch (_) {}
+          }
+
           const fullPayload = {
             id: task.id, user_id: user.id, log_date: task.logDate || null,
             name: task.name, tag: task.tag, type: task.type,
