@@ -305,29 +305,56 @@ const useStore = create(
         try {
           const user = await getUser();
           if (!user) return;
-          
-          if (task.logDate && task.logDate !== 'unassigned') {
+
+          const sanitizeDate = (val) => {
+            if (!val || val === 'unassigned' || val === 'null' || val === 'undefined') return null;
+            return val;
+          };
+
+          const cleanLogDate = sanitizeDate(task.logDate);
+          const cleanOriginalDate = sanitizeDate(task.originalDate) || cleanLogDate || todayStr();
+          const cleanPlannedDate = sanitizeDate(task.plannedDate) || cleanLogDate;
+          const cleanPostponedDate = sanitizeDate(task.postponedToDate);
+
+          if (cleanLogDate) {
             try {
               await supabase.from('daily_logs').upsert({
-                date: task.logDate,
+                date: cleanLogDate,
                 user_id: user.id,
                 approval_state: 'draft',
               }, { onConflict: 'date,user_id' });
             } catch (_) {}
           }
 
+          const validTypes = ['normal', 'power', 'kickass', 'uncritical'];
+          const cleanType = validTypes.includes(task.type) ? task.type : 'normal';
+
+          const validStatuses = ['finished', 'partly_done', 'missed', 'postponed_tomorrow', 'postponed_later', 'cancelled'];
+          const cleanStatus = validStatuses.includes(task.status) ? task.status : 'missed';
+
           let payload = {
-            id: task.id, user_id: user.id, log_date: task.logDate || null,
-            name: task.name, tag: task.tag, type: task.type,
-            weight: task.weight, damage: task.damage, recurrence: task.recurrence,
-            status: task.status, completion_percentage: task.completionPercentage ?? 0,
-            original_date: task.originalDate || task.logDate || null, delay_count: task.delayCount || 0,
+            id: task.id,
+            user_id: user.id,
+            log_date: cleanLogDate,
+            name: task.name || task.title || 'Untitled Task',
+            tag: task.tag || null,
+            type: cleanType,
+            weight: Number(task.weight ?? 1.0),
+            damage: Number(task.damage ?? 0.0),
+            recurrence: task.recurrence || 'none',
+            status: cleanStatus,
+            completion_percentage: Number(task.completionPercentage ?? 0),
+            original_date: cleanOriginalDate,
+            delay_count: Number(task.delayCount || 0),
             calendar_sync: task.calendarSync || false,
             time_block_enabled: task.timeBlockEnabled || false,
-            time_block_start: task.timeBlockStart || null, time_block_end: task.timeBlockEnd || null,
-            has_bonus: task.hasBonus || false, is_core_discipline: task.isCoreDiscipline || false,
-            core_discipline_id: task.coreDisciplineId || null, audit_notes: task.auditNotes || '',
-            postponed_to_date: task.postponedToDate || null,
+            time_block_start: task.timeBlockStart || null,
+            time_block_end: task.timeBlockEnd || null,
+            has_bonus: task.hasBonus || false,
+            is_core_discipline: task.isCoreDiscipline || false,
+            core_discipline_id: task.coreDisciplineId || null,
+            audit_notes: task.auditNotes || '',
+            postponed_to_date: cleanPostponedDate,
             deadline: task.deadline || null,
             importance: task.importance || 'Medium',
             urgency: task.urgency || 'Medium',
@@ -336,9 +363,9 @@ const useStore = create(
             notes: task.notes || null,
             created_at: task.createdAt || new Date().toISOString(),
             completed_at: task.completedAt || null,
-            planned_date: task.plannedDate || task.logDate || null,
-            committed_percentage: task.committedPercentage ?? 1.0,
-            activity_log: task.activityLog ?? [],
+            planned_date: cleanPlannedDate,
+            committed_percentage: Number(task.committedPercentage ?? 1.0),
+            activity_log: Array.isArray(task.activityLog) ? task.activityLog : [],
             is_basket_task: task.isBasketTask ?? true,
             is_day_only: task.isDayOnly ?? false,
           };
@@ -781,9 +808,10 @@ const useStore = create(
 
       addTask: (date, task) => {
         const id = task.id ?? crypto.randomUUID();
-        const dKey = date || 'unassigned';
-        const isBasketTask = task.isBasketTask ?? (!date || date === 'unassigned');
-        const isDayOnly = task.isDayOnly ?? (!!date && date !== 'unassigned');
+        const cleanDate = (date && date !== 'unassigned') ? date : null;
+        const dKey = cleanDate || 'unassigned';
+        const isBasketTask = task.isBasketTask ?? (!cleanDate);
+        const isDayOnly = task.isDayOnly ?? (!!cleanDate);
         const fullTask = {
           importance: 'Medium',
           urgency: 'Medium',
@@ -793,9 +821,9 @@ const useStore = create(
           id,
           isBasketTask,
           isDayOnly,
-          logDate: date || null,
-          plannedDate: task.plannedDate || date || null,
-          originalDate: task.originalDate || date || null,
+          logDate: cleanDate,
+          plannedDate: task.plannedDate ? ((task.plannedDate !== 'unassigned') ? task.plannedDate : null) : cleanDate,
+          originalDate: task.originalDate ? ((task.originalDate !== 'unassigned') ? task.originalDate : null) : (cleanDate || todayStr()),
         };
         set((state) => {
           const newTasks = {
@@ -806,13 +834,14 @@ const useStore = create(
           return { tasks: newTasks };
         });
         get().syncTaskToSupabase(fullTask);
-        if (date && date !== 'unassigned') {
-          get().recalcEarnings(date);
+        if (cleanDate) {
+          get().recalcEarnings(cleanDate);
         }
       },
 
       updateTask: (date, taskId, updates) => {
-        const dKey = date || 'unassigned';
+        const cleanDate = (date && date !== 'unassigned') ? date : null;
+        const dKey = cleanDate || 'unassigned';
         let taskToSync = null;
 
         set((state) => {
@@ -847,7 +876,7 @@ const useStore = create(
         if (taskToSync) {
           get().syncTaskToSupabase(taskToSync);
         }
-        if (date) get().recalcEarnings(date);
+        if (cleanDate) get().recalcEarnings(cleanDate);
       },
 
       deleteTask: async (date, taskId) => {
