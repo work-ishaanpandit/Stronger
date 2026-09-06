@@ -5,14 +5,16 @@ import { calculateDayEarnings } from '../engine/calculator';
 import { generateRollovers, injectCoreDisciplines, getDayStatus } from '../engine/rollover';
 import { supabase } from '../lib/supabase';
 
-const ICS_SERVER = 'http://localhost:3001';
+const ICS_SERVER = import.meta.env.VITE_ICS_SERVER_URL || null;
 
 // ── ICS Server helpers (silent-fail) ─────────────────────────────────────────
 
 const syncToICSServer = async (allTasks) => {
+  if (!ICS_SERVER) return;
   try {
     // Sync all tasks with calendarSync=true (not just timeBlockEnabled)
-    const flat = Object.values(allTasks).flat().filter(t => t.calendarSync);
+    const flat = Object.values(allTasks || {}).flat().filter(t => t && t.calendarSync);
+    if (!flat || flat.length === 0) return;
     await fetch(`${ICS_SERVER}/api/sync`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -22,6 +24,7 @@ const syncToICSServer = async (allTasks) => {
 };
 
 const removeFromICSServer = async (taskId) => {
+  if (!ICS_SERVER) return;
   try {
     await fetch(`${ICS_SERVER}/api/sync/${taskId}`, { method: 'DELETE' });
   } catch (_) {}
