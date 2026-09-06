@@ -218,6 +218,11 @@ const useStore = create(
         tasksRes.data.forEach(t => {
           const dKey = t.log_date || 'unassigned';
           if (!tasks[dKey]) tasks[dKey] = [];
+
+          // Match local task to preserve client-side fields if remote DB columns have not been migrated yet
+          const localMatch = (get().tasks[dKey] ?? []).find(lt => lt && lt.id === t.id)
+            || Object.values(get().tasks).flat().find(lt => lt && lt.id === t.id);
+
           tasks[dKey].push({
             id: t.id, name: t.name, tag: t.tag, type: t.type,
             weight: t.weight, damage: t.damage, recurrence: t.recurrence,
@@ -228,19 +233,21 @@ const useStore = create(
             hasBonus: t.has_bonus, delayCount: t.delay_count,
             isCoreDiscipline: t.is_core_discipline, coreDisciplineId: t.core_discipline_id,
             auditNotes: t.audit_notes, postponedToDate: t.postponed_to_date || null,
-            deadline: t.deadline || null,
-            importance: t.importance || 'Medium',
-            urgency: t.urgency || 'Medium',
-            priority: t.priority || 'Medium',
-            estimatedDuration: t.estimated_duration || null,
-            notes: t.notes || null,
-            createdAt: t.created_at || null,
-            completedAt: t.completed_at || null,
-            plannedDate: t.planned_date || t.log_date || null,
-            committedPercentage: t.committed_percentage != null ? Number(t.committed_percentage) : 1.0,
-            activityLog: Array.isArray(t.activity_log) ? t.activity_log : [],
-            isBasketTask: t.is_basket_task ?? true,
-            isDayOnly: t.is_day_only ?? false,
+
+            // Eisenhower & Basket fields: use DB if present, fallback to local match state
+            deadline: t.deadline !== undefined && t.deadline !== null ? t.deadline : (localMatch?.deadline || null),
+            importance: t.importance || localMatch?.importance || 'Medium',
+            urgency: t.urgency || localMatch?.urgency || 'Medium',
+            priority: t.priority || localMatch?.priority || 'Medium',
+            estimatedDuration: t.estimated_duration !== undefined && t.estimated_duration !== null ? t.estimated_duration : (localMatch?.estimatedDuration || null),
+            notes: t.notes !== undefined && t.notes !== null ? t.notes : (localMatch?.notes || null),
+            createdAt: t.created_at !== undefined && t.created_at !== null ? t.created_at : (localMatch?.createdAt || null),
+            completedAt: t.completed_at !== undefined && t.completed_at !== null ? t.completed_at : (localMatch?.completedAt || null),
+            plannedDate: t.planned_date !== undefined && t.planned_date !== null ? t.planned_date : (localMatch?.plannedDate || t.log_date || null),
+            committedPercentage: t.committed_percentage != null ? Number(t.committed_percentage) : (localMatch?.committedPercentage ?? 1.0),
+            activityLog: Array.isArray(t.activity_log) ? t.activity_log : (localMatch?.activityLog ?? []),
+            isBasketTask: t.is_basket_task ?? (localMatch?.isBasketTask ?? true),
+            isDayOnly: t.is_day_only ?? (localMatch?.isDayOnly ?? false),
           });
         });
 
@@ -333,15 +340,20 @@ const useStore = create(
             is_day_only: task.isDayOnly ?? false,
           };
 
+          // Strip known missing columns before sending HTTP request
+          window._knownMissingTaskCols?.forEach((col) => {
+            delete payload[col];
+          });
+
           for (let attempt = 0; attempt < 8; attempt++) {
             const { error } = await supabase.from('tasks').upsert(payload);
             if (!error) break;
 
-            console.warn(`Task sync attempt ${attempt + 1} failed:`, error.message);
             const match = error.message?.match(/Could not find the '([^']+)' column/i);
             if (match && match[1]) {
               const badCol = match[1];
-              console.warn(`Stripping missing column '${badCol}' and retrying...`);
+              if (!window._knownMissingTaskCols) window._knownMissingTaskCols = new Set();
+              window._knownMissingTaskCols.add(badCol);
               delete payload[badCol];
               continue;
             }
@@ -354,13 +366,14 @@ const useStore = create(
             } else if (attempt === 1) {
               delete payload.created_at;
               delete payload.planned_date;
-            } else if (attempt === 2) {
-              delete payload.time_block_start;
-              delete payload.time_block_end;
-              delete payload.audit_notes;
+              delete payload.deadline;
+              delete payload.importance;
+              delete payload.urgency;
+              delete payload.priority;
               delete payload.estimated_duration;
+              delete payload.notes;
             } else {
-              console.error('All task upsert attempts failed:', error);
+              console.error('Task upsert error:', error);
               break;
             }
           }
@@ -420,14 +433,20 @@ const useStore = create(
             max_daily_remuneration: earningsData.maxDailyRemuneration || settings?.maxDailyRemuneration || 1000,
           };
 
+          window._knownMissingEarningsCols?.forEach((col) => {
+            delete payload[col];
+          });
+
           for (let attempt = 0; attempt < 5; attempt++) {
             const { error } = await supabase.from('earnings').upsert(payload, { onConflict: 'date,user_id' });
             if (!error) break;
 
-            console.warn(`Earnings sync attempt ${attempt + 1} failed:`, error.message);
             const match = error.message?.match(/Could not find the '([^']+)' column/i);
             if (match && match[1]) {
-              delete payload[match[1]];
+              const badCol = match[1];
+              if (!window._knownMissingEarningsCols) window._knownMissingEarningsCols = new Set();
+              window._knownMissingEarningsCols.add(badCol);
+              delete payload[badCol];
               continue;
             }
 
