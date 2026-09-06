@@ -131,6 +131,39 @@ export default function TaskDetailModal({ task, onClose, onEdit }) {
               </div>
             </div>
           )}
+
+          {/* Activity Log */}
+          <div>
+            <div className="text-xs text-tertiary font-semibold uppercase tracking-wider" style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Clock size={12} /> Activity Log & History
+            </div>
+            <div style={{
+              background: 'var(--elevated)',
+              padding: 'var(--sp-3)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border)',
+              maxHeight: '160px',
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '6px'
+            }}>
+              {task.activityLog && task.activityLog.length > 0 ? (
+                task.activityLog.map((log, idx) => (
+                  <div key={idx} style={{ fontSize: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: idx < task.activityLog.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{log.action}</span>
+                    <span style={{ fontSize: 10, color: 'var(--text-tertiary)' }}>
+                      {log.timestamp ? format(new Date(log.timestamp), 'MMM d, HH:mm') : log.date}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div className="text-xs text-tertiary" style={{ fontStyle: 'italic' }}>
+                  No history logged yet for this task.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="modal-footer" style={{ justifyContent: 'space-between' }}>

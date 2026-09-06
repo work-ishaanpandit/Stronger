@@ -237,6 +237,8 @@ const useStore = create(
             createdAt: t.created_at || null,
             completedAt: t.completed_at || null,
             plannedDate: t.planned_date || t.log_date || null,
+            committedPercentage: t.committed_percentage != null ? Number(t.committed_percentage) : 1.0,
+            activityLog: Array.isArray(t.activity_log) ? t.activity_log : [],
           });
         });
 
@@ -312,6 +314,8 @@ const useStore = create(
             created_at: task.createdAt || new Date().toISOString(),
             completed_at: task.completedAt || null,
             planned_date: task.plannedDate || task.logDate || null,
+            committed_percentage: task.committedPercentage ?? 1.0,
+            activity_log: task.activityLog ?? [],
           };
 
           const { error } = await supabase.from('tasks').upsert(fullPayload);
@@ -553,7 +557,6 @@ const useStore = create(
 
       getTaskBasket: () => {
         const { tasks } = get();
-        const todayDateStr = format(new Date(), 'yyyy-MM-dd');
         const allTasks = Object.values(tasks).flat();
         const seen = new Set();
         const result = [];
@@ -562,21 +565,36 @@ const useStore = create(
           seen.add(t.id);
 
           // 1. Exclude completed or cancelled tasks
-          if (t.status === 'finished' || t.status === 'cancelled') continue;
+          if (t.status === 'finished' || t.status === 'completed' || (t.completionPercentage != null && t.completionPercentage >= 1) || t.status === 'cancelled') continue;
 
           // 2. Exclude core disciplines
           if (t.isCoreDiscipline || t.coreDisciplineId) continue;
-
-          // 3. Exclude past historical tasks (tasks logged before today)
-          const taskDate = t.logDate || t.plannedDate;
-          if (taskDate && taskDate < todayDateStr) continue;
 
           result.push(t);
         }
         return result;
       },
 
-      assignTaskToToday: (taskId, targetDate = todayStr()) => {
+      getArchivedTasks: () => {
+        const { tasks } = get();
+        const allTasks = Object.values(tasks).flat();
+        const seen = new Set();
+        const result = [];
+        for (const t of allTasks) {
+          if (!t || !t.id || seen.has(t.id)) continue;
+          seen.add(t.id);
+
+          // Only include finished / completed tasks
+          if (t.status === 'finished' || t.status === 'completed' || (t.completionPercentage != null && t.completionPercentage >= 1)) {
+            if (!t.isCoreDiscipline && !t.coreDisciplineId) {
+              result.push(t);
+            }
+          }
+        }
+        return result;
+      },
+
+      assignTaskToToday: (taskId, targetDate = todayStr(), committedPct = 1.0) => {
         const { tasks, syncTaskToSupabase, initDay, recalcEarnings } = get();
         
         let targetTask = null;
@@ -594,11 +612,20 @@ const useStore = create(
 
         initDay(targetDate);
 
+        const newLogEntry = {
+          timestamp: new Date().toISOString(),
+          action: `Committed ${Math.round(committedPct * 100)}% to ${targetDate}`,
+          committedPercentage: committedPct,
+          date: targetDate,
+        };
+
         const updatedTask = {
           ...targetTask,
           logDate: targetDate,
           plannedDate: targetDate,
           originalDate: targetTask.originalDate || targetDate,
+          committedPercentage: committedPct,
+          activityLog: [...(targetTask.activityLog || []), newLogEntry],
         };
 
         set((state) => {

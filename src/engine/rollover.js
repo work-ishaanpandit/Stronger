@@ -28,13 +28,15 @@ export function generateRollovers(tasks, targetDate) {
   for (const task of tasks) {
     // ── Partly Done rollover ────────────────────────────────────────────
     if (task.status === 'partly_done' && task.type === 'normal') {
-      const remaining = 1 - (task.completionPercentage ?? 0);
+      const actualDoneFraction = (task.committedPercentage ?? 1.0) * (task.completionPercentage ?? 0);
+      const remaining = 1 - actualDoneFraction;
       const n = (task.delayCount ?? 0) + 1;
       const W_new = (task.weight ?? 1) * remaining * Math.pow(0.9, n);
 
       rollovers.push({
         ...baseRollover(task, targetDate),
         weight: round2(W_new),
+        committedPercentage: 1.0,
         completionPercentage: 0,
         delayCount: n,
         rolloverType: ROLLOVER_TYPE.PARTLY_DONE,

@@ -28,14 +28,21 @@ export function calculateDayEarnings(tasks = [], debtCarryover = 0, maxDailyRemu
   const kickassTasks = activeTasks.filter((t) => t.type === 'kickass');
 
   // ─── Step 1: Base Points ────────────────────────────────────────────────
+  // committedPercentage: fraction of task committed to this day (default 1.0 = full)
+  // denominator sees W × committed; numerator sees W × committed × completion
   const P_base = normalTasks.reduce((sum, t) => {
+    const committed = t.committedPercentage ?? 1.0; // null → 1.0 (full weight)
     const C_i = t.completionPercentage ?? 0; // 0.0 – 1.0
     const W_i = t.weight ?? 1;
     const B_i = t.hasBonus ? 1.2 : 1.0;
-    return sum + W_i * C_i * B_i;
+    return sum + W_i * committed * C_i * B_i;
   }, 0);
 
-  const P_potential = normalTasks.reduce((sum, t) => sum + (t.weight ?? 1), 0);
+  // Only the committed fraction counts in the denominator
+  const P_potential = normalTasks.reduce((sum, t) => {
+    const committed = t.committedPercentage ?? 1.0;
+    return sum + (t.weight ?? 1) * committed;
+  }, 0);
 
   // ─── Step 2: Base Earnings (capped at maxDailyRemuneration) ─────────────
   const E_base =

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
-import { Plus, Search, ArrowUpDown, RefreshCw, Layers, Clock, Grid, List as ListIcon, Zap, Rocket, Skull, Leaf } from 'lucide-react';
+import { Plus, Search, ArrowUpDown, RefreshCw, Layers, Clock, Grid, List as ListIcon, Zap, Rocket, Skull, Leaf, X, CheckCircle, Archive } from 'lucide-react';
 import useStore from '../store/useStore';
 import TaskCreationSheet from '../components/TaskCreationSheet';
 import TaskDetailModal from '../components/TaskDetailModal';
@@ -11,11 +11,13 @@ let globalIsDragging = false;
 
 export default function TaskBasket() {
   const getTaskBasket = useStore((s) => s.getTaskBasket);
+  const getArchivedTasks = useStore((s) => s.getArchivedTasks);
   const assignTaskToToday = useStore((s) => s.assignTaskToToday);
   const fetchFromSupabase = useStore((s) => s.fetchFromSupabase);
   const updateTask = useStore((s) => s.updateTask);
   const settings = useStore((s) => s.settings);
 
+  const [activeTab, setActiveTab] = useState('basket'); // 'basket' or 'archive'
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -27,9 +29,11 @@ export default function TaskBasket() {
   const [showCreateSheet, setShowCreateSheet] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [editTask, setEditTask] = useState(null);
+  const [commitTask, setCommitTask] = useState(null);
 
   const todayStr = new Date().toISOString().split('T')[0];
   const allBasketTasks = getTaskBasket();
+  const archivedTasks = getArchivedTasks();
   const currencySymbol = getCurrencySymbol(settings?.currency);
 
   // Extract unique categories/tags
@@ -50,8 +54,8 @@ export default function TaskBasket() {
       (t) => (t.importance || 'Medium').toLowerCase() === 'high' && (t.urgency || 'Medium').toLowerCase() === 'high'
     ).length;
 
-    return { total, inbox, overdue, dueSoon, important, impUrg };
-  }, [allBasketTasks]);
+    return { total, inbox, overdue, dueSoon, important, impUrg, archived: archivedTasks.length };
+  }, [allBasketTasks, archivedTasks]);
 
   // Filtered & sorted task list
   const processedTasks = useMemo(() => {
@@ -92,6 +96,13 @@ export default function TaskBasket() {
     updateTask(task.logDate, task.id, { importance: newImp, urgency: newUrg });
   };
 
+  const handleCommitConfirm = (committedPct) => {
+    if (commitTask) {
+      assignTaskToToday(commitTask.id, todayStr, committedPct);
+      setCommitTask(null);
+    }
+  };
+
   return (
     <main className="page anim-fade">
       {/* Page Header */}
@@ -125,135 +136,174 @@ export default function TaskBasket() {
         </div>
       </div>
 
-      {/* Metrics Summary Bar */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-        gap: 'var(--sp-3)',
-        marginBottom: 'var(--sp-5)'
-      }}>
-        <MetricCard label="Total Tasks" count={metrics.total} active={activeFilter === 'all'} onClick={() => setActiveFilter('all')} color="var(--text-primary)" />
-        <MetricCard label="Inbox" count={metrics.inbox} active={activeFilter === 'inbox'} onClick={() => setActiveFilter('inbox')} color="var(--blue)" />
-        <MetricCard label="Overdue" count={metrics.overdue} active={activeFilter === 'overdue'} onClick={() => setActiveFilter('overdue')} color="var(--red)" />
-        <MetricCard label="Due Soon" count={metrics.dueSoon} active={activeFilter === 'due_week'} onClick={() => setActiveFilter('due_week')} color="var(--orange)" />
-        <MetricCard label="Important" count={metrics.important} active={activeFilter === 'important'} onClick={() => setActiveFilter('important')} color="var(--yellow)" />
-        <MetricCard label="Important + Urgent" count={metrics.impUrg} active={activeFilter === 'important_urgent'} onClick={() => setActiveFilter('important_urgent')} color="var(--red)" />
+      {/* Main Tab Toggle: Active Basket vs Archived Tasks */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 'var(--sp-4)', borderBottom: '1px solid var(--border)', paddingBottom: 'var(--sp-2)' }}>
+        <button
+          className={`btn ${activeTab === 'basket' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setActiveTab('basket')}
+          style={{ gap: 6 }}
+        >
+          <Layers size={15} /> Active Basket ({allBasketTasks.length})
+        </button>
+        <button
+          className={`btn ${activeTab === 'archive' ? 'btn-primary' : 'btn-ghost'}`}
+          onClick={() => setActiveTab('archive')}
+          style={{ gap: 6 }}
+        >
+          <Archive size={15} /> Archived Tasks ({archivedTasks.length})
+        </button>
       </div>
 
-      {/* Search & Filters Toolbar */}
-      <div style={{
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 'var(--sp-3)',
-        alignItems: 'center',
-        justify: 'space-between',
-        marginBottom: 'var(--sp-5)',
-        background: 'var(--elevated)',
-        padding: 'var(--sp-3) var(--sp-4)',
-        borderRadius: 'var(--radius-md)',
-        border: '1px solid var(--border)'
-      }}>
-        {/* Left: Search input */}
-        <div style={{ position: 'relative', flex: '1 1 240px', maxWidth: '360px' }}>
-          <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
-          <input
-            type="text"
-            className="input input-sm"
-            style={{ paddingLeft: 34, width: '100%' }}
-            placeholder="Search tasks, notes, tags..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+      {activeTab === 'basket' ? (
+        <>
+          {/* Metrics Summary Bar */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+            gap: 'var(--sp-3)',
+            marginBottom: 'var(--sp-5)'
+          }}>
+            <MetricCard label="Total Tasks" count={metrics.total} active={activeFilter === 'all'} onClick={() => setActiveFilter('all')} color="var(--text-primary)" />
+            <MetricCard label="Inbox" count={metrics.inbox} active={activeFilter === 'inbox'} onClick={() => setActiveFilter('inbox')} color="var(--blue)" />
+            <MetricCard label="Overdue" count={metrics.overdue} active={activeFilter === 'overdue'} onClick={() => setActiveFilter('overdue')} color="var(--red)" />
+            <MetricCard label="Due Soon" count={metrics.dueSoon} active={activeFilter === 'due_week'} onClick={() => setActiveFilter('due_week')} color="var(--orange)" />
+            <MetricCard label="Important" count={metrics.important} active={activeFilter === 'important'} onClick={() => setActiveFilter('important')} color="var(--yellow)" />
+            <MetricCard label="Important + Urgent" count={metrics.impUrg} active={activeFilter === 'important_urgent'} onClick={() => setActiveFilter('important_urgent')} color="var(--red)" />
+          </div>
 
-        {/* Middle: Dropdown Filters */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', flexWrap: 'wrap' }}>
-          {categories.length > 0 && (
-            <select
-              className="input input-sm"
-              style={{ width: 'auto' }}
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-            >
-              <option value="all">Category: All</option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>#{cat}</option>
-              ))}
-            </select>
+          {/* Search & Filters Toolbar */}
+          <div style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 'var(--sp-3)',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 'var(--sp-5)',
+            background: 'var(--elevated)',
+            padding: 'var(--sp-3) var(--sp-4)',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border)'
+          }}>
+            {/* Left: Search input */}
+            <div style={{ position: 'relative', flex: '1 1 240px', maxWidth: '360px' }}>
+              <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-tertiary)' }} />
+              <input
+                type="text"
+                className="input input-sm"
+                style={{ paddingLeft: 34, width: '100%' }}
+                placeholder="Search tasks, notes, tags..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+
+            {/* Middle: Dropdown Filters */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', flexWrap: 'wrap' }}>
+              {categories.length > 0 && (
+                <select
+                  className="input input-sm"
+                  style={{ width: 'auto' }}
+                  value={categoryFilter}
+                  onChange={(e) => setCategoryFilter(e.target.value)}
+                >
+                  <option value="all">Category: All</option>
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>#{cat}</option>
+                  ))}
+                </select>
+              )}
+
+              <select
+                className="input input-sm"
+                style={{ width: 'auto' }}
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value)}
+              >
+                <option value="all">Priority: All</option>
+                <option value="high">High</option>
+                <option value="medium">Medium</option>
+                <option value="low">Low</option>
+              </select>
+
+              <select
+                className="input input-sm"
+                style={{ width: 'auto' }}
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+              >
+                <option value="created">Sort: Created</option>
+                <option value="deadline">Sort: Deadline</option>
+                <option value="importance">Sort: Importance</option>
+                <option value="urgency">Sort: Urgency</option>
+                <option value="priority">Sort: Priority</option>
+                <option value="weight">Sort: Weight</option>
+              </select>
+
+              <button
+                className="btn btn-ghost btn-sm btn-icon"
+                onClick={() => setSortAsc((v) => !v)}
+                title={sortAsc ? 'Ascending' : 'Descending'}
+              >
+                <ArrowUpDown size={14} style={{ transform: sortAsc ? 'rotate(180deg)' : 'none' }} />
+              </button>
+            </div>
+
+            {/* Right: View Mode Toggle */}
+            <div style={{ display: 'flex', background: 'var(--bg)', borderRadius: 'var(--radius-sm)', padding: 2, border: '1px solid var(--border)' }}>
+              <button
+                className={`btn btn-sm ${viewMode === 'matrix' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setViewMode('matrix')}
+                style={{ padding: '4px 10px', height: 28, fontSize: 12, gap: 4 }}
+              >
+                <Grid size={13} /> Matrix
+              </button>
+              <button
+                className={`btn btn-sm ${viewMode === 'list' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setViewMode('list')}
+                style={{ padding: '4px 10px', height: 28, fontSize: 12, gap: 4 }}
+              >
+                <ListIcon size={13} /> List ({processedTasks.length})
+              </button>
+            </div>
+          </div>
+
+          {/* Main View Area */}
+          {viewMode === 'matrix' ? (
+            <EisenhowerMatrixView
+              quadrants={matrixQuadrants}
+              onSelectTask={(task) => setSelectedTask(task)}
+              onAddToToday={(task) => setCommitTask(task)}
+              onMoveQuadrant={handleMoveToQuadrant}
+              currencySymbol={currencySymbol}
+              todayStr={todayStr}
+            />
+          ) : (
+            <TaskListView
+              tasks={processedTasks}
+              onSelectTask={(task) => setSelectedTask(task)}
+              onAddToToday={(task) => setCommitTask(task)}
+              onMoveQuadrant={handleMoveToQuadrant}
+              currencySymbol={currencySymbol}
+              todayStr={todayStr}
+            />
           )}
-
-          <select
-            className="input input-sm"
-            style={{ width: 'auto' }}
-            value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value)}
-          >
-            <option value="all">Priority: All</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-          </select>
-
-          <select
-            className="input input-sm"
-            style={{ width: 'auto' }}
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-          >
-            <option value="created">Sort: Created</option>
-            <option value="deadline">Sort: Deadline</option>
-            <option value="importance">Sort: Importance</option>
-            <option value="urgency">Sort: Urgency</option>
-            <option value="priority">Sort: Priority</option>
-            <option value="weight">Sort: Weight</option>
-          </select>
-
-          <button
-            className="btn btn-ghost btn-sm btn-icon"
-            onClick={() => setSortAsc((v) => !v)}
-            title={sortAsc ? 'Ascending' : 'Descending'}
-          >
-            <ArrowUpDown size={14} style={{ transform: sortAsc ? 'rotate(180deg)' : 'none' }} />
-          </button>
-        </div>
-
-        {/* Right: View Mode Toggle */}
-        <div style={{ display: 'flex', background: 'var(--bg)', borderRadius: 'var(--radius-sm)', padding: 2, border: '1px solid var(--border)' }}>
-          <button
-            className={`btn btn-sm ${viewMode === 'matrix' ? 'btn-primary' : 'btn-ghost'}`}
-            onClick={() => setViewMode('matrix')}
-            style={{ padding: '4px 10px', height: 28, fontSize: 12, gap: 4 }}
-          >
-            <Grid size={13} /> Matrix
-          </button>
-          <button
-            className={`btn btn-sm ${viewMode === 'list' ? 'btn-primary' : 'btn-ghost'}`}
-            onClick={() => setViewMode('list')}
-            style={{ padding: '4px 10px', height: 28, fontSize: 12, gap: 4 }}
-          >
-            <ListIcon size={13} /> List ({processedTasks.length})
-          </button>
-        </div>
-      </div>
-
-      {/* Main View Area */}
-      {viewMode === 'matrix' ? (
-        <EisenhowerMatrixView
-          quadrants={matrixQuadrants}
-          onSelectTask={(task) => setSelectedTask(task)}
-          onAddToToday={(task) => assignTaskToToday(task.id, todayStr)}
-          onMoveQuadrant={handleMoveToQuadrant}
-          currencySymbol={currencySymbol}
-          todayStr={todayStr}
-        />
+        </>
       ) : (
-        <TaskListView
-          tasks={processedTasks}
+        /* Archived Tasks View */
+        <ArchivedTasksView
+          tasks={archivedTasks}
           onSelectTask={(task) => setSelectedTask(task)}
-          onAddToToday={(task) => assignTaskToToday(task.id, todayStr)}
-          onMoveQuadrant={handleMoveToQuadrant}
           currencySymbol={currencySymbol}
-          todayStr={todayStr}
+        />
+      )}
+
+      {/* Commit Slider Modal */}
+      {commitTask && (
+        <CommitSliderModal
+          task={commitTask}
+          onClose={() => setCommitTask(null)}
+          onConfirm={handleCommitConfirm}
+          currencySymbol={currencySymbol}
         />
       )}
 
@@ -279,6 +329,126 @@ export default function TaskBasket() {
         />
       )}
     </main>
+  );
+}
+
+function CommitSliderModal({ task, onClose, onConfirm, currencySymbol }) {
+  const [percentage, setPercentage] = useState(100);
+
+  if (!task) return null;
+
+  const weight = task.weight ?? 1;
+  const committedWeight = (weight * (percentage / 100)).toFixed(2);
+  const remainingWeight = (weight * (1 - percentage / 100)).toFixed(2);
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content" style={{ maxWidth: '440px' }}>
+        <div className="modal-header">
+          <h2 className="modal-title" style={{ fontSize: '1.15rem' }}>Commit Task to Today</h2>
+          <button className="btn btn-ghost btn-icon" onClick={onClose}><X size={18} /></button>
+        </div>
+
+        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
+          <div style={{ background: 'var(--elevated)', padding: 'var(--sp-3)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+            <div className="font-semibold text-sm">{task.name || task.title}</div>
+            <div className="text-xs text-tertiary" style={{ marginTop: 2 }}>
+              Total Weight / Base Points: {weight}
+            </div>
+          </div>
+
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <label className="text-xs font-semibold uppercase tracking-wider text-tertiary">Committed Portion</label>
+              <span className="badge badge-purple" style={{ fontSize: '1rem', padding: '2px 10px' }}>{percentage}%</span>
+            </div>
+
+            <input
+              type="range"
+              min="10"
+              max="100"
+              step="5"
+              value={percentage}
+              onChange={(e) => setPercentage(Number(e.target.value))}
+              style={{ width: '100%', accentColor: 'var(--purple)', cursor: 'pointer' }}
+            />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-tertiary)', marginTop: 4 }}>
+              <span>10% (Partial)</span>
+              <span>50% (Half)</span>
+              <span>100% (Full Task)</span>
+            </div>
+          </div>
+
+          <div style={{ background: 'rgba(10, 132, 255, 0.08)', border: '1px solid rgba(10, 132, 255, 0.2)', padding: 'var(--sp-3)', borderRadius: 'var(--radius-md)', fontSize: 12, lineHeight: 1.5, color: 'var(--text-secondary)' }}>
+            <div><strong>Today's Allocation:</strong> {committedWeight} pts committed to today's Dawn Alignment.</div>
+            {percentage < 100 && (
+              <div style={{ marginTop: 4 }}><strong>Basket Balance:</strong> {remainingWeight} pts remain in the Task Basket for future days.</div>
+            )}
+          </div>
+        </div>
+
+        <div className="modal-footer" style={{ justifyContent: 'flex-end', gap: 8 }}>
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={() => onConfirm(percentage / 100)}>
+            Confirm {percentage}% Commitment
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ArchivedTasksView({ tasks, onSelectTask, currencySymbol }) {
+  if (!tasks || tasks.length === 0) {
+    return (
+      <div className="card text-center" style={{ padding: 'var(--sp-8)' }}>
+        <Archive size={32} className="text-tertiary" style={{ marginBottom: 8, margin: '0 auto' }} />
+        <div className="text-sm font-semibold">No Archived Tasks</div>
+        <div className="text-xs text-tertiary" style={{ marginTop: 4 }}>
+          Tasks marked as completed or finished will appear here.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+      {tasks.map((task) => (
+        <div
+          key={task.id}
+          onClick={() => onSelectTask(task)}
+          className="card task-row-hover"
+          style={{
+            padding: 'var(--sp-3) var(--sp-4)',
+            borderRadius: 'var(--radius-sm)',
+            cursor: 'pointer',
+            background: 'var(--bg)',
+            border: '1px solid var(--border)',
+            display: 'flex',
+            alignItems: 'center',
+            justifySpace: 'space-between',
+            gap: 'var(--sp-3)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', flex: 1 }}>
+            <CheckCircle size={18} className="text-green" />
+            <div>
+              <div className="font-medium text-sm" style={{ textDecoration: 'line-through', color: 'var(--text-tertiary)' }}>
+                {task.name || task.title}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11, color: 'var(--text-tertiary)', marginTop: 2 }}>
+                {task.completedAt && <span>Completed: {format(new Date(task.completedAt), 'MMM d, yyyy')}</span>}
+                {task.logDate && <span>Logged: {task.logDate}</span>}
+                {task.weight && <span>Weight: {task.weight}</span>}
+              </div>
+            </div>
+          </div>
+
+          <span className="badge badge-green" style={{ fontSize: 11 }}>Finished 100%</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
