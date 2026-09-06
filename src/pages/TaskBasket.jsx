@@ -676,6 +676,8 @@ function TaskCard({ task, onSelect, onAddToToday, onMoveQuadrant, currencySymbol
         {/* Quick Quadrant Selector Dropdown */}
         <select
           value={qInfo.key}
+          onMouseDown={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
           onChange={(e) => {
             e.stopPropagation();

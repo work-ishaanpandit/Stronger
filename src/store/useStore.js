@@ -239,8 +239,8 @@ const useStore = create(
             plannedDate: t.planned_date || t.log_date || null,
             committedPercentage: t.committed_percentage != null ? Number(t.committed_percentage) : 1.0,
             activityLog: Array.isArray(t.activity_log) ? t.activity_log : [],
-            isBasketTask: t.is_basket_task ?? false,
-            isDayOnly: t.is_day_only ?? false,
+            isBasketTask: t.is_basket_task ?? (!t.log_date || t.log_date === 'unassigned'),
+            isDayOnly: t.is_day_only ?? (!!t.log_date && t.log_date !== 'unassigned'),
           });
         });
 
@@ -301,10 +301,10 @@ const useStore = create(
             name: task.name, tag: task.tag, type: task.type,
             weight: task.weight, damage: task.damage, recurrence: task.recurrence,
             status: task.status, completion_percentage: task.completionPercentage ?? 0,
-            original_date: task.originalDate || task.logDate || todayStr(), delay_count: task.delayCount || 0,
+            original_date: task.originalDate || task.logDate || null, delay_count: task.delayCount || 0,
             calendar_sync: task.calendarSync || false,
             time_block_enabled: task.timeBlockEnabled || false,
-            time_block_start: task.timeBlockStart, time_block_end: task.timeBlockEnd,
+            time_block_start: task.timeBlockStart || null, time_block_end: task.timeBlockEnd || null,
             has_bonus: task.hasBonus || false, is_core_discipline: task.isCoreDiscipline || false,
             core_discipline_id: task.coreDisciplineId || null, audit_notes: task.auditNotes || '',
             postponed_to_date: task.postponedToDate || null,
@@ -319,44 +319,58 @@ const useStore = create(
             planned_date: task.plannedDate || task.logDate || null,
             committed_percentage: task.committedPercentage ?? 1.0,
             activity_log: task.activityLog ?? [],
-            is_basket_task: task.isBasketTask ?? false,
-            is_day_only: task.isDayOnly ?? false,
+            is_basket_task: task.isBasketTask ?? (!task.logDate || task.logDate === 'unassigned'),
+            is_day_only: task.isDayOnly ?? (!!task.logDate && task.logDate !== 'unassigned'),
           };
 
           const { error } = await supabase.from('tasks').upsert(fullPayload);
           
           if (error) {
-            // Fallback retry if remote DB table has not run the latest migration yet
-            if (error.message?.includes('column') || error.message?.includes('schema cache')) {
-              const basePayload = {
+            console.warn('Full payload upsert failed, retrying standard payload:', error.message);
+            // Tier 2: Standard planning payload with Eisenhower Matrix fields
+            const standardPayload = {
+              id: task.id, user_id: user.id, log_date: task.logDate || null,
+              name: task.name, tag: task.tag, type: task.type,
+              weight: task.weight, damage: task.damage, recurrence: task.recurrence,
+              status: task.status, completion_percentage: task.completionPercentage ?? 0,
+              original_date: task.originalDate || task.logDate || null, delay_count: task.delayCount || 0,
+              calendar_sync: task.calendarSync || false,
+              time_block_enabled: task.timeBlockEnabled || false,
+              time_block_start: task.timeBlockStart || null, time_block_end: task.timeBlockEnd || null,
+              has_bonus: task.hasBonus || false, is_core_discipline: task.isCoreDiscipline || false,
+              core_discipline_id: task.coreDisciplineId || null, audit_notes: task.auditNotes || '',
+              postponed_to_date: task.postponedToDate || null,
+              deadline: task.deadline || null,
+              importance: task.importance || 'Medium',
+              urgency: task.urgency || 'Medium',
+              priority: task.priority || 'Medium',
+              estimated_duration: task.estimatedDuration || null,
+              notes: task.notes || null,
+              created_at: task.createdAt || new Date().toISOString(),
+              completed_at: task.completedAt || null,
+              planned_date: task.plannedDate || task.logDate || null,
+            };
+
+            const retryRes = await supabase.from('tasks').upsert(standardPayload);
+            if (retryRes.error) {
+              console.warn('Standard payload upsert failed, retrying legacy core payload:', retryRes.error.message);
+              // Tier 3: Core legacy payload
+              const legacyPayload = {
                 id: task.id, user_id: user.id, log_date: task.logDate || null,
                 name: task.name, tag: task.tag, type: task.type,
                 weight: task.weight, damage: task.damage, recurrence: task.recurrence,
                 status: task.status, completion_percentage: task.completionPercentage ?? 0,
-                original_date: task.originalDate || task.logDate || todayStr(), delay_count: task.delayCount || 0,
+                original_date: task.originalDate || task.logDate || null, delay_count: task.delayCount || 0,
                 calendar_sync: task.calendarSync || false,
                 time_block_enabled: task.timeBlockEnabled || false,
-                time_block_start: task.timeBlockStart, time_block_end: task.timeBlockEnd,
                 has_bonus: task.hasBonus || false, is_core_discipline: task.isCoreDiscipline || false,
-                core_discipline_id: task.coreDisciplineId || null, audit_notes: task.auditNotes || '',
-                postponed_to_date: task.postponedToDate || null,
-                deadline: task.deadline || null,
-                importance: task.importance || 'Medium',
-                urgency: task.urgency || 'Medium',
-                priority: task.priority || 'Medium',
-                estimated_duration: task.estimatedDuration || null,
-                notes: task.notes || null,
+                core_discipline_id: task.coreDisciplineId || null,
                 created_at: task.createdAt || new Date().toISOString(),
-                completed_at: task.completedAt || null,
-                planned_date: task.plannedDate || task.logDate || null,
               };
-              const retryRes = await supabase.from('tasks').upsert(basePayload);
-              if (retryRes.error) {
-                console.error('Retry upsert error:', retryRes.error);
+              const legacyRes = await supabase.from('tasks').upsert(legacyPayload);
+              if (legacyRes.error) {
+                console.error('All upsert attempts failed:', legacyRes.error);
               }
-            } else {
-              console.error('Upsert task error:', error);
-              alert('DB Update Error: ' + error.message);
             }
           }
         } catch (err) {
@@ -724,6 +738,7 @@ const useStore = create(
         const id = task.id ?? crypto.randomUUID();
         const dKey = date || 'unassigned';
         const isBasketTask = task.isBasketTask ?? (!date || date === 'unassigned');
+        const isDayOnly = task.isDayOnly ?? (!!date && date !== 'unassigned');
         const fullTask = {
           importance: 'Medium',
           urgency: 'Medium',
@@ -732,8 +747,10 @@ const useStore = create(
           ...task,
           id,
           isBasketTask,
+          isDayOnly,
           logDate: date || null,
           plannedDate: task.plannedDate || date || null,
+          originalDate: task.originalDate || date || null,
         };
         set((state) => {
           const newTasks = {
@@ -744,7 +761,7 @@ const useStore = create(
           return { tasks: newTasks };
         });
         get().syncTaskToSupabase(fullTask);
-        if (date) {
+        if (date && date !== 'unassigned') {
           get().recalcEarnings(date);
         }
       },
