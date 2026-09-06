@@ -90,6 +90,7 @@ export default function TaskCreationSheet({ date, task = null, onClose }) {
       delayCount:       isEdit ? (task.delayCount ?? 0) : 0,
       originalDate:     isEdit ? task.originalDate : date,
       auditNotes:       isEdit ? (task.auditNotes ?? '') : '',
+      isBasketTask:     isEdit ? (task.isBasketTask ?? !date) : !date,
     };
 
     if (isEdit) {

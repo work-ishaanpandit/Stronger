@@ -239,6 +239,7 @@ const useStore = create(
             plannedDate: t.planned_date || t.log_date || null,
             committedPercentage: t.committed_percentage != null ? Number(t.committed_percentage) : 1.0,
             activityLog: Array.isArray(t.activity_log) ? t.activity_log : [],
+            isBasketTask: t.is_basket_task != null ? t.is_basket_task : (!t.log_date || t.log_date === 'unassigned'),
           });
         });
 
@@ -264,51 +265,7 @@ const useStore = create(
           }
         });
 
-        // Hard-delete active non-core tasks created before September 1, 2026
         const coreDiscList = cdRes.data || [];
-        const preSeptCutoff = '2026-09-01';
-        const purgeTaskIds = [];
-        const cleanedTasks = {};
-
-        Object.entries(mergedTasks).forEach(([dateKey, tList]) => {
-          cleanedTasks[dateKey] = (tList ?? []).filter((t) => {
-            if (!t) return false;
-
-            const isFinished = t.status === 'finished' || t.status === 'completed' || (t.completionPercentage != null && t.completionPercentage >= 1);
-            if (isFinished || t.status === 'cancelled') return true; // Keep finished / cancelled tasks
-
-            // Check if core discipline
-            const isCore = t.isCoreDiscipline || t.coreDisciplineId || t.rolloverType === 'core_discipline' || coreDiscList.some(cd => cd.id === t.coreDisciplineId || (cd.name && t.name && cd.name.trim().toLowerCase() === t.name.trim().toLowerCase()));
-            if (isCore) return true; // Keep core disciplines
-
-            // Check date created/logged
-            const logD = t.logDate || t.plannedDate || t.originalDate;
-            const createdD = t.createdAt ? t.createdAt.split('T')[0] : null;
-
-            const isBeforeSept1 = (logD && logD < preSeptCutoff) || (createdD && createdD < preSeptCutoff);
-
-            if (isBeforeSept1) {
-              purgeTaskIds.push(t.id);
-              return false; // Hard delete from local state
-            }
-
-            return true;
-          });
-        });
-
-        if (purgeTaskIds.length > 0 && user) {
-          supabase
-            .from('tasks')
-            .delete()
-            .in('id', purgeTaskIds)
-            .eq('user_id', user.id)
-            .then(({ error }) => {
-              if (error) console.error('Failed to hard delete pre-Sept active tasks:', error);
-              else console.log(`Successfully hard-deleted ${purgeTaskIds.length} pre-Sept active tasks from DB`);
-            })
-            .catch((err) => console.error('Purge exception:', err));
-        }
-
         const calendarToken = profileRes.data?.calendar_token ?? null;
         const userCurrency = profileRes.data?.currency || get().settings?.currency || 'INR';
         const userMaxDaily = profileRes.data?.max_daily_remuneration != null
@@ -317,7 +274,7 @@ const useStore = create(
 
         set({
           dailyLogs,
-          tasks: cleanedTasks,
+          tasks: mergedTasks,
           coreDisciplines: coreDiscList,
           earnings,
           calendarToken,
@@ -361,6 +318,7 @@ const useStore = create(
             planned_date: task.plannedDate || task.logDate || null,
             committed_percentage: task.committedPercentage ?? 1.0,
             activity_log: task.activityLog ?? [],
+            is_basket_task: task.isBasketTask ?? false,
           };
 
           const { error } = await supabase.from('tasks').upsert(fullPayload);
@@ -610,10 +568,14 @@ const useStore = create(
         for (const t of allTasks) {
           if (!t.id) continue;
 
-          // 1. Exclude cancelled tasks
+          // 1. Must be a Task Basket task (created in basket or isBasketTask flag set or logDate is unassigned)
+          const isBasket = t.isBasketTask === true || !t.logDate || t.logDate === 'unassigned';
+          if (!isBasket) continue;
+
+          // 2. Exclude cancelled tasks
           if (t.status === 'cancelled') continue;
 
-          // 2. Exclude core disciplines
+          // 3. Exclude core disciplines
           if (t.isCoreDiscipline || t.coreDisciplineId || t.rolloverType === 'core_discipline') continue;
           if (coreDisciplines.some((cd) => cd.id === t.coreDisciplineId || (cd.name && t.name && cd.name.trim().toLowerCase() === t.name.trim().toLowerCase()))) continue;
 
@@ -654,11 +616,14 @@ const useStore = create(
         const { tasks, coreDisciplines = [] } = get();
         const allTasks = Object.values(tasks).flat().filter(Boolean);
 
-        // Group by task chain key (name + originalDate) to find the latest instance of each task chain
         const chainMap = new Map();
 
         for (const t of allTasks) {
           if (!t.id) continue;
+
+          // Must be a Task Basket task
+          const isBasket = t.isBasketTask === true || !t.logDate || t.logDate === 'unassigned';
+          if (!isBasket) continue;
 
           if (t.status === 'cancelled') continue;
 
@@ -728,6 +693,7 @@ const useStore = create(
           plannedDate: targetDate,
           originalDate: targetTask.originalDate || targetDate,
           committedPercentage: committedPct,
+          isBasketTask: targetTask.isBasketTask ?? true,
           activityLog: [...(targetTask.activityLog || []), newLogEntry],
         };
 
@@ -750,6 +716,7 @@ const useStore = create(
       addTask: (date, task) => {
         const id = task.id ?? crypto.randomUUID();
         const dKey = date || 'unassigned';
+        const isBasketTask = task.isBasketTask ?? (!date || date === 'unassigned');
         const fullTask = {
           importance: 'Medium',
           urgency: 'Medium',
@@ -757,6 +724,7 @@ const useStore = create(
           createdAt: new Date().toISOString(),
           ...task,
           id,
+          isBasketTask,
           logDate: date || null,
           plannedDate: task.plannedDate || date || null,
         };
