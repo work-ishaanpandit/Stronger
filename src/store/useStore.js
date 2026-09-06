@@ -340,6 +340,15 @@ const useStore = create(
                 has_bonus: task.hasBonus || false, is_core_discipline: task.isCoreDiscipline || false,
                 core_discipline_id: task.coreDisciplineId || null, audit_notes: task.auditNotes || '',
                 postponed_to_date: task.postponedToDate || null,
+                deadline: task.deadline || null,
+                importance: task.importance || 'Medium',
+                urgency: task.urgency || 'Medium',
+                priority: task.priority || 'Medium',
+                estimated_duration: task.estimatedDuration || null,
+                notes: task.notes || null,
+                created_at: task.createdAt || new Date().toISOString(),
+                completed_at: task.completedAt || null,
+                planned_date: task.plannedDate || task.logDate || null,
               };
               const retryRes = await supabase.from('tasks').upsert(basePayload);
               if (retryRes.error) {
@@ -742,6 +751,8 @@ const useStore = create(
 
       updateTask: (date, taskId, updates) => {
         const dKey = date || 'unassigned';
+        let taskToSync = null;
+
         set((state) => {
           let foundInDKey = (state.tasks[dKey] ?? []).some(t => t && t.id === taskId);
           let newTasks = { ...state.tasks };
@@ -750,7 +761,7 @@ const useStore = create(
             const updatedTasks = (state.tasks[dKey] ?? []).map(t => {
               if (t.id !== taskId) return t;
               const updated = { ...t, ...updates };
-              get().syncTaskToSupabase(updated);
+              taskToSync = updated;
               return updated;
             });
             newTasks[dKey] = updatedTasks;
@@ -760,7 +771,7 @@ const useStore = create(
                 newTasks[k] = tList.map(t => {
                   if (t.id !== taskId) return t;
                   const updated = { ...t, ...updates };
-                  get().syncTaskToSupabase(updated);
+                  taskToSync = updated;
                   return updated;
                 });
                 break;
@@ -770,6 +781,10 @@ const useStore = create(
           syncToICSServer(newTasks);
           return { tasks: newTasks };
         });
+
+        if (taskToSync) {
+          get().syncTaskToSupabase(taskToSync);
+        }
         if (date) get().recalcEarnings(date);
       },
 
