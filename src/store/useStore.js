@@ -239,7 +239,8 @@ const useStore = create(
             plannedDate: t.planned_date || t.log_date || null,
             committedPercentage: t.committed_percentage != null ? Number(t.committed_percentage) : 1.0,
             activityLog: Array.isArray(t.activity_log) ? t.activity_log : [],
-            isBasketTask: t.is_basket_task != null ? t.is_basket_task : (!t.log_date || t.log_date === 'unassigned'),
+            isBasketTask: t.is_basket_task ?? false,
+            isDayOnly: t.is_day_only ?? false,
           });
         });
 
@@ -319,6 +320,7 @@ const useStore = create(
             committed_percentage: task.committedPercentage ?? 1.0,
             activity_log: task.activityLog ?? [],
             is_basket_task: task.isBasketTask ?? false,
+            is_day_only: task.isDayOnly ?? false,
           };
 
           const { error } = await supabase.from('tasks').upsert(fullPayload);
@@ -568,9 +570,8 @@ const useStore = create(
         for (const t of allTasks) {
           if (!t.id) continue;
 
-          // 1. Must be a Task Basket task (created in basket or isBasketTask flag set or logDate is unassigned)
-          const isBasket = t.isBasketTask === true || !t.logDate || t.logDate === 'unassigned';
-          if (!isBasket) continue;
+          // 1. Exclude day-only operational tasks created inside Dawn Alignment window
+          if (t.isDayOnly === true) continue;
 
           // 2. Exclude cancelled tasks
           if (t.status === 'cancelled') continue;
@@ -621,10 +622,7 @@ const useStore = create(
         for (const t of allTasks) {
           if (!t.id) continue;
 
-          // Must be a Task Basket task
-          const isBasket = t.isBasketTask === true || !t.logDate || t.logDate === 'unassigned';
-          if (!isBasket) continue;
-
+          if (t.isDayOnly === true) continue;
           if (t.status === 'cancelled') continue;
 
           if (t.isCoreDiscipline || t.coreDisciplineId || t.rolloverType === 'core_discipline') continue;

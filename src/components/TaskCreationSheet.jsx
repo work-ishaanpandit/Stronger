@@ -91,6 +91,7 @@ export default function TaskCreationSheet({ date, task = null, onClose }) {
       originalDate:     isEdit ? task.originalDate : date,
       auditNotes:       isEdit ? (task.auditNotes ?? '') : '',
       isBasketTask:     isEdit ? (task.isBasketTask ?? !date) : !date,
+      isDayOnly:        isEdit ? (task.isDayOnly ?? false) : !!date,
     };
 
     if (isEdit) {
