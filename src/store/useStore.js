@@ -239,8 +239,8 @@ const useStore = create(
             plannedDate: t.planned_date || t.log_date || null,
             committedPercentage: t.committed_percentage != null ? Number(t.committed_percentage) : 1.0,
             activityLog: Array.isArray(t.activity_log) ? t.activity_log : [],
-            isBasketTask: t.is_basket_task ?? (!t.log_date || t.log_date === 'unassigned'),
-            isDayOnly: t.is_day_only ?? (!!t.log_date && t.log_date !== 'unassigned'),
+            isBasketTask: t.is_basket_task ?? true,
+            isDayOnly: t.is_day_only ?? false,
           });
         });
 
@@ -319,8 +319,8 @@ const useStore = create(
             planned_date: task.plannedDate || task.logDate || null,
             committed_percentage: task.committedPercentage ?? 1.0,
             activity_log: task.activityLog ?? [],
-            is_basket_task: task.isBasketTask ?? (!task.logDate || task.logDate === 'unassigned'),
-            is_day_only: task.isDayOnly ?? (!!task.logDate && task.logDate !== 'unassigned'),
+            is_basket_task: task.isBasketTask ?? true,
+            is_day_only: task.isDayOnly ?? false,
           };
 
           const { error } = await supabase.from('tasks').upsert(fullPayload);
