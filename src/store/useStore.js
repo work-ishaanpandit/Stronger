@@ -602,40 +602,95 @@ const useStore = create(
 
       getTaskBasket: () => {
         const { tasks, coreDisciplines = [] } = get();
-        const allTasks = Object.values(tasks).flat();
-        const seen = new Set();
-        const result = [];
-        for (const t of allTasks) {
-          if (!t || !t.id || seen.has(t.id)) continue;
-          seen.add(t.id);
+        const allTasks = Object.values(tasks).flat().filter(Boolean);
 
-          // 1. Exclude completed or cancelled tasks
-          if (t.status === 'finished' || t.status === 'completed' || (t.completionPercentage != null && t.completionPercentage >= 1) || t.status === 'cancelled') continue;
+        // Group by task chain key (name + originalDate) to find the latest instance of each task chain
+        const chainMap = new Map();
+
+        for (const t of allTasks) {
+          if (!t.id) continue;
+
+          // 1. Exclude cancelled tasks
+          if (t.status === 'cancelled') continue;
 
           // 2. Exclude core disciplines
           if (t.isCoreDiscipline || t.coreDisciplineId || t.rolloverType === 'core_discipline') continue;
           if (coreDisciplines.some((cd) => cd.id === t.coreDisciplineId || (cd.name && t.name && cd.name.trim().toLowerCase() === t.name.trim().toLowerCase()))) continue;
 
-          result.push(t);
+          const nameKey = (t.name || t.title || '').trim().toLowerCase();
+          const origKey = t.originalDate || t.plannedDate || t.logDate || t.id;
+          const key = `${nameKey}|${origKey}`;
+
+          const existing = chainMap.get(key);
+          if (!existing) {
+            chainMap.set(key, t);
+          } else {
+            // Compare dates/timestamps to keep only the latest instance in the chain
+            const dateExisting = existing.logDate || existing.plannedDate || existing.createdAt || '';
+            const dateCurrent = t.logDate || t.plannedDate || t.createdAt || '';
+
+            if (dateCurrent > dateExisting) {
+              chainMap.set(key, t);
+            } else if (dateCurrent === dateExisting) {
+              if ((t.delayCount ?? 0) > (existing.delayCount ?? 0) || t.status === 'finished' || t.status === 'completed') {
+                chainMap.set(key, t);
+              }
+            }
+          }
+        }
+
+        // Return only active (uncompleted) latest task instances
+        const result = [];
+        for (const t of chainMap.values()) {
+          const isFinished = t.status === 'finished' || t.status === 'completed' || (t.completionPercentage != null && t.completionPercentage >= 1);
+          if (!isFinished) {
+            result.push(t);
+          }
         }
         return result;
       },
 
       getArchivedTasks: () => {
         const { tasks, coreDisciplines = [] } = get();
-        const allTasks = Object.values(tasks).flat();
-        const seen = new Set();
-        const result = [];
+        const allTasks = Object.values(tasks).flat().filter(Boolean);
+
+        // Group by task chain key (name + originalDate) to find the latest instance of each task chain
+        const chainMap = new Map();
+
         for (const t of allTasks) {
-          if (!t || !t.id || seen.has(t.id)) continue;
-          seen.add(t.id);
+          if (!t.id) continue;
 
-          // Only include finished / completed tasks
-          if (t.status === 'finished' || t.status === 'completed' || (t.completionPercentage != null && t.completionPercentage >= 1)) {
-            // Exclude core disciplines
-            if (t.isCoreDiscipline || t.coreDisciplineId || t.rolloverType === 'core_discipline') continue;
-            if (coreDisciplines.some((cd) => cd.id === t.coreDisciplineId || (cd.name && t.name && cd.name.trim().toLowerCase() === t.name.trim().toLowerCase()))) continue;
+          if (t.status === 'cancelled') continue;
 
+          if (t.isCoreDiscipline || t.coreDisciplineId || t.rolloverType === 'core_discipline') continue;
+          if (coreDisciplines.some((cd) => cd.id === t.coreDisciplineId || (cd.name && t.name && cd.name.trim().toLowerCase() === t.name.trim().toLowerCase()))) continue;
+
+          const nameKey = (t.name || t.title || '').trim().toLowerCase();
+          const origKey = t.originalDate || t.plannedDate || t.logDate || t.id;
+          const key = `${nameKey}|${origKey}`;
+
+          const existing = chainMap.get(key);
+          if (!existing) {
+            chainMap.set(key, t);
+          } else {
+            const dateExisting = existing.logDate || existing.plannedDate || existing.createdAt || '';
+            const dateCurrent = t.logDate || t.plannedDate || t.createdAt || '';
+
+            if (dateCurrent > dateExisting) {
+              chainMap.set(key, t);
+            } else if (dateCurrent === dateExisting) {
+              if ((t.delayCount ?? 0) > (existing.delayCount ?? 0) || t.status === 'finished' || t.status === 'completed') {
+                chainMap.set(key, t);
+              }
+            }
+          }
+        }
+
+        // Return only finished/completed latest task instances
+        const result = [];
+        for (const t of chainMap.values()) {
+          const isFinished = t.status === 'finished' || t.status === 'completed' || (t.completionPercentage != null && t.completionPercentage >= 1);
+          if (isFinished) {
             result.push(t);
           }
         }
