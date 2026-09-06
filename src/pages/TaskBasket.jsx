@@ -57,6 +57,8 @@ export default function TaskBasket() {
     return { total, inbox, overdue, dueSoon, important, impUrg, archived: archivedTasks.length };
   }, [allBasketTasks, archivedTasks]);
 
+  const coreDisciplines = useStore((s) => s.coreDisciplines);
+
   // Filtered & sorted task list
   const processedTasks = useMemo(() => {
     const filtered = filterTasks(allBasketTasks, {
@@ -64,9 +66,10 @@ export default function TaskBasket() {
       category: categoryFilter,
       priority: priorityFilter,
       search,
+      coreDisciplines,
     });
     return sortTasks(filtered, sortBy, sortAsc);
-  }, [allBasketTasks, activeFilter, categoryFilter, priorityFilter, search, sortBy, sortAsc]);
+  }, [allBasketTasks, activeFilter, categoryFilter, priorityFilter, search, sortBy, sortAsc, coreDisciplines]);
 
   // Group tasks by Eisenhower Quadrant for Matrix view
   const matrixQuadrants = useMemo(() => {

@@ -556,7 +556,7 @@ const useStore = create(
       getTasksForDate: (date) => (get().tasks[date] ?? []).filter(t => t && t.status !== 'cancelled'),
 
       getTaskBasket: () => {
-        const { tasks } = get();
+        const { tasks, coreDisciplines = [] } = get();
         const allTasks = Object.values(tasks).flat();
         const seen = new Set();
         const result = [];
@@ -568,7 +568,8 @@ const useStore = create(
           if (t.status === 'finished' || t.status === 'completed' || (t.completionPercentage != null && t.completionPercentage >= 1) || t.status === 'cancelled') continue;
 
           // 2. Exclude core disciplines
-          if (t.isCoreDiscipline || t.coreDisciplineId) continue;
+          if (t.isCoreDiscipline || t.coreDisciplineId || t.rolloverType === 'core_discipline') continue;
+          if (coreDisciplines.some((cd) => cd.id === t.coreDisciplineId || (cd.name && t.name && cd.name.trim().toLowerCase() === t.name.trim().toLowerCase()))) continue;
 
           result.push(t);
         }
@@ -576,7 +577,7 @@ const useStore = create(
       },
 
       getArchivedTasks: () => {
-        const { tasks } = get();
+        const { tasks, coreDisciplines = [] } = get();
         const allTasks = Object.values(tasks).flat();
         const seen = new Set();
         const result = [];
@@ -586,9 +587,11 @@ const useStore = create(
 
           // Only include finished / completed tasks
           if (t.status === 'finished' || t.status === 'completed' || (t.completionPercentage != null && t.completionPercentage >= 1)) {
-            if (!t.isCoreDiscipline && !t.coreDisciplineId) {
-              result.push(t);
-            }
+            // Exclude core disciplines
+            if (t.isCoreDiscipline || t.coreDisciplineId || t.rolloverType === 'core_discipline') continue;
+            if (coreDisciplines.some((cd) => cd.id === t.coreDisciplineId || (cd.name && t.name && cd.name.trim().toLowerCase() === t.name.trim().toLowerCase()))) continue;
+
+            result.push(t);
           }
         }
         return result;

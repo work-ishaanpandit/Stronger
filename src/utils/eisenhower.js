@@ -71,14 +71,14 @@ export function isTaskDueSoon(task, daysThreshold = 7) {
   }
 }
 
-export function filterTasks(taskList = [], { filter = 'all', category = 'all', priority = 'all', search = '' }) {
+export function filterTasks(taskList = [], { filter = 'all', category = 'all', priority = 'all', search = '', coreDisciplines = [] }) {
   const query = search.trim().toLowerCase();
   const todayStr = new Date().toISOString().split('T')[0];
 
   return taskList.filter((t) => {
-    if (t.status === 'cancelled' || t.status === 'finished' || t.isCoreDiscipline || t.coreDisciplineId) return false;
-    const taskDate = t.logDate || t.plannedDate;
-    if (taskDate && taskDate < todayStr) return false;
+    if (t.status === 'cancelled' || t.status === 'finished') return false;
+    if (t.isCoreDiscipline || t.coreDisciplineId || t.rolloverType === 'core_discipline') return false;
+    if (coreDisciplines.some((cd) => cd.id === t.coreDisciplineId || (cd.name && t.name && cd.name.trim().toLowerCase() === t.name.trim().toLowerCase()))) return false;
 
     // Search query filter
     if (query) {
