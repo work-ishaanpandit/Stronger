@@ -10,6 +10,7 @@ import { getCurrencySymbol } from '../utils/currency';
 let globalIsDragging = false;
 
 export default function TaskBasket() {
+  const storeTasks = useStore((s) => s.tasks); // Subscribe to store tasks for instant UI updates
   const getTaskBasket = useStore((s) => s.getTaskBasket);
   const getArchivedTasks = useStore((s) => s.getArchivedTasks);
   const assignTaskToToday = useStore((s) => s.assignTaskToToday);

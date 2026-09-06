@@ -12,6 +12,7 @@ const TODAY = format(new Date(), 'yyyy-MM-dd');
 const TYPE_COLORS = { normal: 'var(--blue)', power: 'var(--purple)', kickass: 'var(--red)', uncritical: 'var(--text-tertiary)' };
 
 export default function DawnAlignment() {
+  const storeTasks = useStore((s) => s.tasks);
   const dailyLogs = useStore((s) => s.dailyLogs);
   const fetchFromSupabase = useStore((s) => s.fetchFromSupabase);
   const updateDailyLog = useStore((s) => s.updateDailyLog);
