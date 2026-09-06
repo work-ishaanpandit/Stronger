@@ -264,6 +264,51 @@ const useStore = create(
           }
         });
 
+        // Hard-delete active non-core tasks created before September 1, 2026
+        const coreDiscList = cdRes.data || [];
+        const preSeptCutoff = '2026-09-01';
+        const purgeTaskIds = [];
+        const cleanedTasks = {};
+
+        Object.entries(mergedTasks).forEach(([dateKey, tList]) => {
+          cleanedTasks[dateKey] = (tList ?? []).filter((t) => {
+            if (!t) return false;
+
+            const isFinished = t.status === 'finished' || t.status === 'completed' || (t.completionPercentage != null && t.completionPercentage >= 1);
+            if (isFinished || t.status === 'cancelled') return true; // Keep finished / cancelled tasks
+
+            // Check if core discipline
+            const isCore = t.isCoreDiscipline || t.coreDisciplineId || t.rolloverType === 'core_discipline' || coreDiscList.some(cd => cd.id === t.coreDisciplineId || (cd.name && t.name && cd.name.trim().toLowerCase() === t.name.trim().toLowerCase()));
+            if (isCore) return true; // Keep core disciplines
+
+            // Check date created/logged
+            const logD = t.logDate || t.plannedDate || t.originalDate;
+            const createdD = t.createdAt ? t.createdAt.split('T')[0] : null;
+
+            const isBeforeSept1 = (logD && logD < preSeptCutoff) || (createdD && createdD < preSeptCutoff);
+
+            if (isBeforeSept1) {
+              purgeTaskIds.push(t.id);
+              return false; // Hard delete from local state
+            }
+
+            return true;
+          });
+        });
+
+        if (purgeTaskIds.length > 0 && user) {
+          supabase
+            .from('tasks')
+            .delete()
+            .in('id', purgeTaskIds)
+            .eq('user_id', user.id)
+            .then(({ error }) => {
+              if (error) console.error('Failed to hard delete pre-Sept active tasks:', error);
+              else console.log(`Successfully hard-deleted ${purgeTaskIds.length} pre-Sept active tasks from DB`);
+            })
+            .catch((err) => console.error('Purge exception:', err));
+        }
+
         const calendarToken = profileRes.data?.calendar_token ?? null;
         const userCurrency = profileRes.data?.currency || get().settings?.currency || 'INR';
         const userMaxDaily = profileRes.data?.max_daily_remuneration != null
@@ -272,8 +317,8 @@ const useStore = create(
 
         set({
           dailyLogs,
-          tasks: mergedTasks,
-          coreDisciplines: cdRes.data || [],
+          tasks: cleanedTasks,
+          coreDisciplines: coreDiscList,
           earnings,
           calendarToken,
           settings: { currency: userCurrency, maxDailyRemuneration: userMaxDaily }
