@@ -5,7 +5,7 @@ import useStore from '../store/useStore';
 import { getCurrencySymbol } from '../utils/currency';
 
 // Conditional Feature Flag (default: turned off)
-const ENABLE_RESET_FEATURE = false;
+const ENABLE_RESET_FEATURE = true;
 
 export default function SettleUpModal({ onClose }) {
   const getPendingRemuneration = useStore((s) => s.getPendingRemuneration);
