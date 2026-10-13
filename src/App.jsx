@@ -36,10 +36,22 @@ export default function App() {
   const pathname = window.location.pathname;
 
   useEffect(() => {
+    // Track when we last did a full fetch so we can skip redundant ones
+    const lastFetchedAt = { current: 0 };
+
+    const doFetch = () => {
+      const now = Date.now();
+      // Skip if a fetch happened within the last 60 seconds
+      if (now - lastFetchedAt.current < 60_000) return;
+      lastFetchedAt.current = now;
+      fetchFromSupabase().then(() => setLoading(false));
+    };
+
     // 1. Check for existing session on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session) {
+        lastFetchedAt.current = Date.now();
         fetchFromSupabase().then(() => setLoading(false));
       } else {
         setLoading(false);
@@ -50,7 +62,11 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) {
-        fetchFromSupabase();
+        // Only refetch on genuine auth events (sign-in / token refresh),
+        // not on every visibility change or reconnect
+        if (_event === 'SIGNED_IN' || _event === 'TOKEN_REFRESHED') {
+          doFetch();
+        }
       } else {
         useStore.getState().resetStore();
       }
@@ -64,19 +80,30 @@ export default function App() {
         'postgres_changes',
         { event: '*', schema: 'public' },
         (payload) => {
+          // Skip realtime-triggered refetches when tab is not visible
+          if (document.visibilityState !== 'visible') return;
           console.log('Realtime database sync trigger received:', payload.table);
           if (debounceTimeout) clearTimeout(debounceTimeout);
           debounceTimeout = setTimeout(() => {
-            fetchFromSupabase();
+            doFetch();
           }, 1000); // 1-second debounce to batch multiple updates
         }
       )
       .subscribe();
 
+    // 4. When the tab regains focus, do a single stale-check refetch
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        doFetch();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
       subscription.unsubscribe();
       supabase.removeChannel(channel);
       if (debounceTimeout) clearTimeout(debounceTimeout);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 

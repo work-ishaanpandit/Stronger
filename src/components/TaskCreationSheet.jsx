@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Zap, Rocket, Skull, Leaf, X, Calendar, Clock, Sliders } from 'lucide-react';
 import useStore from '../store/useStore';
 import { getCurrencySymbol } from '../utils/currency';
@@ -39,6 +39,10 @@ export default function TaskCreationSheet({ date, task = null, onClose }) {
   const symbol     = getCurrencySymbol(settings?.currency);
 
   const isEdit = !!task;
+  // Ref to track whether mousedown started on the overlay backdrop
+  // This prevents accidental closes when dragging to select text inside the sheet
+  const mouseDownOnOverlay = useRef(false);
+
   const [form, setForm] = useState(isEdit ? {
     name:             task.name ?? '',
     tag:              task.tag ?? '',
@@ -103,7 +107,11 @@ export default function TaskCreationSheet({ date, task = null, onClose }) {
   };
 
   return (
-    <div className="overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div
+      className="overlay"
+      onMouseDown={(e) => { mouseDownOnOverlay.current = e.target === e.currentTarget; }}
+      onClick={(e) => { if (e.target === e.currentTarget && mouseDownOnOverlay.current) onClose(); }}
+    >
       <div className="sheet" role="dialog" aria-modal="true" aria-label={isEdit ? 'Edit Task' : 'New Task'}>
 
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--sp-5)' }}>
