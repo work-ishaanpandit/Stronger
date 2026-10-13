@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import useStore from '../store/useStore';
 import { supabase } from '../lib/supabase';
-import { Sun, Moon, LayoutDashboard, Calendar as CalendarIcon, LogOut, Settings as SettingsIcon, Layers, Shield } from 'lucide-react';
+import { Sun, Moon, LayoutDashboard, Calendar as CalendarIcon, LogOut, Settings as SettingsIcon, Layers, Shield, BookOpen } from 'lucide-react';
 import CalendarLinkPanel from './CalendarLinkPanel';
 import SettingsModal from './SettingsModal';
 
 const TABS = [
   { id: 'dawn',      icon: Sun,             label: 'Dawn Alignment',  desc: 'Plan your day' },
   { id: 'basket',    icon: Layers,          label: 'Task Basket',     desc: 'Master repository' },
+  { id: 'study',     icon: BookOpen,        label: 'Study Mode',      desc: 'Focus & recall' },
   { id: 'dusk',      icon: Moon,            label: 'Dusk Synthesis',   desc: 'Review & reflect' },
   { id: 'chronicle', icon: LayoutDashboard, label: 'Chronicle',        desc: 'Track your arc' },
 ];
@@ -19,6 +20,7 @@ export default function SideNav({ session, isMobileOpen, onCloseMobile }) {
   const activeTab    = useStore((s) => s.activeTab);
   const setActiveTab = useStore((s) => s.setActiveTab);
   const userRole     = useStore((s) => s.userRole);
+  const activeStudySessionId = useStore((s) => s.activeStudySessionId);
   const today        = format(new Date(), 'EEE, MMM d');
   const [showCalPanel, setShowCalPanel] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -73,7 +75,12 @@ export default function SideNav({ session, isMobileOpen, onCloseMobile }) {
               >
                 <div className="nav-item-icon"><Icon size={18} /></div>
                 <div className="nav-item-text">
-                  <div className="nav-item-label">{tab.label}</div>
+                  <div className="nav-item-label" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>{tab.label}</span>
+                    {tab.id === 'study' && activeStudySessionId && (
+                      <span className="badge badge-blue" style={{ fontSize: 9, padding: '1px 6px' }}>Active</span>
+                    )}
+                  </div>
                   <div className="nav-item-desc">{tab.desc}</div>
                 </div>
               </button>

@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Lock, Inbox, CheckCircle, Activity, XCircle,
 import useStore from '../store/useStore';
 import TaskAuditModal from '../components/TaskAuditModal';
 import ReflectionPanel from '../components/ReflectionPanel';
+import DuskStudySynthesis from '../components/study/DuskStudySynthesis';
 import { isDateEditable } from '../engine/rollover';
 import { getCurrencySymbol } from '../utils/currency';
 
@@ -276,6 +277,9 @@ export default function DuskSynthesis() {
               </div>
             </div>
           )}
+
+          {/* Study Mode Synthesis */}
+          <DuskStudySynthesis date={duskDate} />
 
           {/* Reflection */}
           <ReflectionPanel date={duskDate} locked={locked} />

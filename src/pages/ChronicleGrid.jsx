@@ -7,10 +7,11 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell,
 } from 'recharts';
-import { ChevronLeft, ChevronRight, TrendingUp, BarChart2, Zap, LayoutDashboard, Calendar as CalendarIcon, ArrowRight, Search, Target, PieChart as PieChartIcon, Flame, IndianRupee } from 'lucide-react';
+import { ChevronLeft, ChevronRight, TrendingUp, BarChart2, Zap, LayoutDashboard, Calendar as CalendarIcon, ArrowRight, Search, Target, PieChart as PieChartIcon, Flame, IndianRupee, BookOpen } from 'lucide-react';
 import useStore from '../store/useStore';
 import SettleUpModal from '../components/SettleUpModal';
 import AIInsightCard from '../components/AIInsightCard';
+import ChronicleStudyHistory from '../components/study/ChronicleStudyHistory';
 import { getCurrencySymbol } from '../utils/currency';
 
 export default function ChronicleGrid() {
@@ -18,6 +19,7 @@ export default function ChronicleGrid() {
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [chronicleTab, setChronicleTab] = useState('discipline');
 
   const getDayStatus = useStore((s) => s.getDayStatus);
   const searchEntries = useStore((s) => s.searchEntries);
@@ -63,17 +65,44 @@ export default function ChronicleGrid() {
   return (
     <main className="page anim-fade">
       {/* Header */}
-      <div className="page-header">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className="page-header" style={{ marginBottom: 'var(--sp-6)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
           <h1 className="page-title">Chronicle Ledger</h1>
-          <span className="badge badge-green" style={{ fontSize: 12 }}>
-            {getCurrencySymbol(settings?.currency)}{totalEarned.toFixed(0)} this month
-          </span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {chronicleTab === 'discipline' && (
+              <span className="badge badge-green" style={{ fontSize: 12 }}>
+                {getCurrencySymbol(settings?.currency)}{totalEarned.toFixed(0)} this month
+              </span>
+            )}
+
+            <div style={{ display: 'flex', background: 'var(--elevated)', padding: 3, borderRadius: 'var(--radius-pill)', border: '1px solid var(--border)' }}>
+              <button
+                className={`btn btn-sm ${chronicleTab === 'discipline' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setChronicleTab('discipline')}
+                style={{ fontSize: 12, padding: '4px 12px', height: 28 }}
+              >
+                <LayoutDashboard size={13} />
+                <span>Discipline</span>
+              </button>
+              <button
+                className={`btn btn-sm ${chronicleTab === 'study' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setChronicleTab('study')}
+                style={{ fontSize: 12, padding: '4px 12px', height: 28 }}
+              >
+                <BookOpen size={13} />
+                <span>Study History</span>
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="page-subtitle">Your discipline arc — calendar, earnings, and trend analytics</div>
+        <div className="page-subtitle">Your discipline arc — calendar, earnings, and study session analytics</div>
       </div>
 
-      <div className="spatial-grid">
+      {chronicleTab === 'study' ? (
+        <ChronicleStudyHistory />
+      ) : (
+        <div className="spatial-grid">
         {/* LEFT COLUMN: Calendar & Daily Breakdown */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-6)' }}>
           
@@ -286,6 +315,7 @@ export default function ChronicleGrid() {
         </div>
 
       </div>
+      )}
 
       {showSettleModal && <SettleUpModal onClose={() => setShowSettleModal(false)} />}
     </main>

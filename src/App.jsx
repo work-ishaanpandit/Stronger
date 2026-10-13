@@ -7,6 +7,7 @@ import SideNav from './components/SideNav';
 import MobileHeader from './components/MobileHeader';
 import DawnAlignment from './pages/DawnAlignment';
 import TaskBasket from './pages/TaskBasket';
+import StudyMode from './pages/StudyMode';
 import DuskSynthesis from './pages/DuskSynthesis';
 import ChronicleGrid from './pages/ChronicleGrid';
 import AdminDashboard from './pages/AdminDashboard';
@@ -207,6 +208,7 @@ export default function App() {
       <div className="main-content" style={{ flex: 1, minWidth: 0 }}>
         {activeTab === 'dawn'      && <DawnAlignment />}
         {activeTab === 'basket'    && <TaskBasket />}
+        {activeTab === 'study'     && <StudyMode />}
         {activeTab === 'dusk'      && <DuskSynthesis />}
         {activeTab === 'chronicle' && <ChronicleGrid />}
         {activeTab === 'admin'     && isAdmin && <AdminDashboard />}
