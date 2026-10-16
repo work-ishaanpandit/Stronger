@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Coffee, ArrowRight, Play, Pause, XCircle, Clock, RotateCcw } from 'lucide-react';
 import useStore from '../../store/useStore';
 import { calculatePhaseTiming, formatTimerDisplay } from '../../engine/studyTimer';
+import { useStudyTimerAlert } from './useStudyTimerAlert';
+import StudySpeakerButton from './StudySpeakerButton';
 
 export default function BreakScreen({ onEndSessionRequest }) {
   const activeStudyPhaseId = useStore((s) => s.activeStudyPhaseId);
@@ -28,7 +30,10 @@ export default function BreakScreen({ onEndSessionRequest }) {
   const timing = calculatePhaseTiming(currentPhase);
   const timerText = formatTimerDisplay(timing);
 
+  const { isBuzzing, stopBuzzing } = useStudyTimerAlert(currentPhase, timing);
+
   const handleTogglePause = () => {
+    stopBuzzing();
     if (timing.isPaused) {
       resumeActivePhase();
     } else {
@@ -38,6 +43,7 @@ export default function BreakScreen({ onEndSessionRequest }) {
 
   const handleReturnToPlan = () => {
     if (isTransitioning) return;
+    stopBuzzing();
     returnToPlan();
   };
 
@@ -112,7 +118,7 @@ export default function BreakScreen({ onEndSessionRequest }) {
           {timerText}
         </div>
 
-        <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 10 }}>
           {timing.isPaused ? (
             <span className="badge badge-yellow" style={{ fontSize: 13, padding: '4px 12px' }}>
               ⏸ Paused
@@ -126,6 +132,12 @@ export default function BreakScreen({ onEndSessionRequest }) {
               <Clock size={13} /> Target: 5 minutes
             </span>
           )}
+
+          <StudySpeakerButton
+            isBuzzing={isBuzzing}
+            onStopBuzzing={stopBuzzing}
+            themeColor="var(--green)"
+          />
         </div>
       </div>
 

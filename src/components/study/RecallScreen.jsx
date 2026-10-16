@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Brain, Coffee, ArrowRight, XCircle, Play, Pause, Clock, Star } from 'lucide-react';
 import useStore from '../../store/useStore';
 import { calculatePhaseTiming, formatTimerDisplay } from '../../engine/studyTimer';
+import { useStudyTimerAlert } from './useStudyTimerAlert';
+import StudySpeakerButton from './StudySpeakerButton';
 
 const FOCUS_LABELS = [
   { val: 1, label: '1 - Low', desc: 'Distracted / Frequent interruptions' },
@@ -39,7 +41,10 @@ export default function RecallScreen({ onEndSessionRequest }) {
   const timing = calculatePhaseTiming(currentPhase);
   const timerText = formatTimerDisplay(timing);
 
+  const { isBuzzing, stopBuzzing } = useStudyTimerAlert(currentPhase, timing);
+
   const handleTogglePause = () => {
+    stopBuzzing();
     if (timing.isPaused) {
       resumeActivePhase();
     } else {
@@ -50,6 +55,7 @@ export default function RecallScreen({ onEndSessionRequest }) {
   const handleSaveAndBreak = async (e) => {
     e?.preventDefault();
     if (submitting || isTransitioning) return;
+    stopBuzzing();
     setSubmitting(true);
     try {
       await saveRecallAndStartBreak(studyDrafts.recall);
@@ -108,7 +114,7 @@ export default function RecallScreen({ onEndSessionRequest }) {
           marginBottom: 'var(--sp-5)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span
             style={{
               fontSize: 24,
@@ -121,6 +127,12 @@ export default function RecallScreen({ onEndSessionRequest }) {
           </span>
           {timing.isPaused && <span className="badge badge-yellow">Paused</span>}
           {timing.isOvertime && <span className="badge badge-orange">Overtime</span>}
+          <StudySpeakerButton
+            isBuzzing={isBuzzing}
+            onStopBuzzing={stopBuzzing}
+            themeColor="var(--purple)"
+            size="sm"
+          />
         </div>
 
         <button className="btn btn-ghost btn-sm" onClick={handleTogglePause}>

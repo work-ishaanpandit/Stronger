@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Play, Pause, ArrowRight, XCircle, Clock, BookOpen, AlertCircle } from 'lucide-react';
 import useStore from '../../store/useStore';
 import { calculatePhaseTiming, formatTimerDisplay } from '../../engine/studyTimer';
+import { useStudyTimerAlert } from './useStudyTimerAlert';
+import StudySpeakerButton from './StudySpeakerButton';
 
 export default function WorkScreen({ onEndSessionRequest }) {
   const activeStudyPhaseId = useStore((s) => s.activeStudyPhaseId);
@@ -29,7 +31,10 @@ export default function WorkScreen({ onEndSessionRequest }) {
   const timing = calculatePhaseTiming(currentPhase);
   const timerText = formatTimerDisplay(timing);
 
+  const { isBuzzing, stopBuzzing } = useStudyTimerAlert(currentPhase, timing);
+
   const handleTogglePause = () => {
+    stopBuzzing();
     if (timing.isPaused) {
       resumeActivePhase();
     } else {
@@ -39,6 +44,7 @@ export default function WorkScreen({ onEndSessionRequest }) {
 
   const handleNextRecall = () => {
     if (isTransitioning) return;
+    stopBuzzing();
     advanceToRecall();
   };
 
@@ -122,8 +128,8 @@ export default function WorkScreen({ onEndSessionRequest }) {
           {timerText}
         </div>
 
-        {/* Status Chip */}
-        <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        {/* Status Chip & Speaker Alert Button */}
+        <div style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 10 }}>
           {timing.isPaused ? (
             <span className="badge badge-yellow" style={{ fontSize: 13, padding: '4px 12px' }}>
               ⏸ Paused
@@ -137,6 +143,12 @@ export default function WorkScreen({ onEndSessionRequest }) {
               <Clock size={13} /> Target: 25 minutes
             </span>
           )}
+
+          <StudySpeakerButton
+            isBuzzing={isBuzzing}
+            onStopBuzzing={stopBuzzing}
+            themeColor="var(--blue)"
+          />
         </div>
       </div>
 

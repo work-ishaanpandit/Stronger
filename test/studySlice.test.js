@@ -229,3 +229,17 @@ test('studySlice - editHistoricalBlock creates audit revision record and does no
   assert.equal(focusRev.previousValue, '3');
   assert.equal(focusRev.newValue, '5');
 });
+
+test('studySlice - sound alert toggle manages speaker state', () => {
+  const { get } = createMockStore();
+  assert.equal(get().studySoundAlertEnabled, true);
+
+  get().toggleStudySoundAlert();
+  assert.equal(get().studySoundAlertEnabled, false);
+
+  get().toggleStudySoundAlert();
+  assert.equal(get().studySoundAlertEnabled, true);
+
+  get().setStudySoundAlert(false);
+  assert.equal(get().studySoundAlertEnabled, false);
+});

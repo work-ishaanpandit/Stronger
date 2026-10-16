@@ -32,6 +32,17 @@ export const createStudySlice = (set, get) => ({
   studySyncStatus: 'synced', // 'synced' | 'saving' | 'local_only' | 'error'
   studySyncError: null,
   isTransitioning: false, // Atomic transition guard
+  studySoundAlertEnabled: true, // Speaker toggle for countdown buzzer alert
+
+  toggleStudySoundAlert: () => {
+    set((state) => ({
+      studySoundAlertEnabled: !state.studySoundAlertEnabled,
+    }));
+  },
+
+  setStudySoundAlert: (enabled) => {
+    set({ studySoundAlertEnabled: !!enabled });
+  },
 
   // ── Draft Updaters ──────────────────────────────────────────────────────────
   setBrainDumpDraft: (text) => {
