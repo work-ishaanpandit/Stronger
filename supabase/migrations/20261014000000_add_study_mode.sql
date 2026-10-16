@@ -127,5 +127,10 @@ CREATE POLICY "Owners can manage own study revisions" ON public.study_revisions
     FOR ALL USING (auth.uid() = user_id)
     WITH CHECK (auth.uid() = user_id);
 
+-- 6. Enable Realtime Replication for instant cross-device updates
+ALTER PUBLICATION supabase_realtime ADD TABLE public.study_sessions;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.study_blocks;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.study_phases;
+
 -- Refresh PostgREST schema cache
 NOTIFY pgrst, 'reload schema';

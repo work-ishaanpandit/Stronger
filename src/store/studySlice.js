@@ -784,11 +784,16 @@ export const createStudySlice = (set, get) => ({
       const { error } = await supabase.from('study_sessions').upsert(payload, { onConflict: 'id' });
       if (error) {
         console.warn('study_sessions sync error:', error.message);
-        set({ studySyncStatus: 'local_only', studySyncError: error.message });
+        const isTableMissing = error.code === 'PGRST204' || error.message?.includes('schema cache');
+        set({ studySyncStatus: isTableMissing ? 'tables_missing' : 'error', studySyncError: error.message });
+      } else {
+        if (get().studySyncStatus !== 'local_only') {
+          set({ studySyncStatus: 'synced', studySyncError: null });
+        }
       }
     } catch (err) {
       console.warn('study_sessions sync exception:', err.message);
-      set({ studySyncStatus: 'local_only' });
+      set({ studySyncStatus: 'error', studySyncError: err.message });
     }
   },
 
@@ -817,11 +822,16 @@ export const createStudySlice = (set, get) => ({
       const { error } = await supabase.from('study_blocks').upsert(payload, { onConflict: 'id' });
       if (error) {
         console.warn('study_blocks sync error:', error.message);
-        set({ studySyncStatus: 'local_only', studySyncError: error.message });
+        const isTableMissing = error.code === 'PGRST204' || error.message?.includes('schema cache');
+        set({ studySyncStatus: isTableMissing ? 'tables_missing' : 'error', studySyncError: error.message });
+      } else {
+        if (get().studySyncStatus !== 'local_only') {
+          set({ studySyncStatus: 'synced', studySyncError: null });
+        }
       }
     } catch (err) {
       console.warn('study_blocks sync exception:', err.message);
-      set({ studySyncStatus: 'local_only' });
+      set({ studySyncStatus: 'error', studySyncError: err.message });
     }
   },
 
@@ -847,11 +857,16 @@ export const createStudySlice = (set, get) => ({
       const { error } = await supabase.from('study_phases').upsert(payload, { onConflict: 'id' });
       if (error) {
         console.warn('study_phases sync error:', error.message);
-        set({ studySyncStatus: 'local_only', studySyncError: error.message });
+        const isTableMissing = error.code === 'PGRST204' || error.message?.includes('schema cache');
+        set({ studySyncStatus: isTableMissing ? 'tables_missing' : 'error', studySyncError: error.message });
+      } else {
+        if (get().studySyncStatus !== 'local_only') {
+          set({ studySyncStatus: 'synced', studySyncError: null });
+        }
       }
     } catch (err) {
       console.warn('study_phases sync exception:', err.message);
-      set({ studySyncStatus: 'local_only' });
+      set({ studySyncStatus: 'error', studySyncError: err.message });
     }
   },
 
@@ -877,6 +892,129 @@ export const createStudySlice = (set, get) => ({
       }
     } catch (err) {
       console.warn('study_revisions sync exception:', err.message);
+    }
+  },
+
+  // ── Sync All Local Records to Supabase (Full sync / backfill) ─────────────
+  syncAllLocalStudyDataToSupabase: async () => {
+    try {
+      const user = await getUser();
+      if (!user) return { success: false, reason: 'unauthenticated' };
+
+      const { studySessions, studyBlocks, studyPhases, studyRevisions } = get();
+
+      const sessionsList = Object.values(studySessions || {});
+      const blocksList = Object.values(studyBlocks || {});
+      const phasesList = Object.values(studyPhases || {});
+      const revisionsList = Object.values(studyRevisions || {}).flat();
+
+      if (sessionsList.length === 0 && blocksList.length === 0) {
+        set({ studySyncStatus: 'synced', studySyncError: null });
+        return { success: true };
+      }
+
+      set({ studySyncStatus: 'saving' });
+
+      // 1. Sessions
+      for (const session of sessionsList) {
+        const payload = {
+          id: session.id,
+          user_id: user.id,
+          date: session.date,
+          started_at: session.startedAt,
+          ended_at: session.endedAt || null,
+          brain_dump: session.brainDump || '',
+          status: session.status || 'active',
+          created_at: session.createdAt,
+          updated_at: session.updatedAt,
+        };
+        const { error } = await supabase.from('study_sessions').upsert(payload, { onConflict: 'id' });
+        if (error) {
+          const isTableMissing = error.code === 'PGRST204' || error.message?.includes('schema cache');
+          set({
+            studySyncStatus: isTableMissing ? 'tables_missing' : 'error',
+            studySyncError: error.message,
+          });
+          return { success: false, error: error.message, isTableMissing };
+        }
+      }
+
+      // 2. Blocks
+      for (const block of blocksList) {
+        const payload = {
+          id: block.id,
+          session_id: block.sessionId,
+          user_id: user.id,
+          sequence_number: block.sequenceNumber,
+          course: block.course || null,
+          topic: block.topic || null,
+          planned_outcome: block.plannedOutcome,
+          actual_outcome: block.actualOutcome || null,
+          next_action: block.nextAction || null,
+          focus_rating: block.focusRating || null,
+          status: block.status || 'planned',
+          recall_completeness: block.recallCompleteness || 'not_recorded',
+          created_at: block.createdAt,
+          updated_at: block.updatedAt,
+        };
+        const { error } = await supabase.from('study_blocks').upsert(payload, { onConflict: 'id' });
+        if (error) {
+          const isTableMissing = error.code === 'PGRST204' || error.message?.includes('schema cache');
+          set({
+            studySyncStatus: isTableMissing ? 'tables_missing' : 'error',
+            studySyncError: error.message,
+          });
+          return { success: false, error: error.message, isTableMissing };
+        }
+      }
+
+      // 3. Phases
+      for (const phase of phasesList) {
+        const payload = {
+          id: phase.id,
+          block_id: phase.blockId,
+          user_id: user.id,
+          phase_type: phase.phaseType,
+          target_duration: phase.targetDuration,
+          started_at: phase.startedAt,
+          ended_at: phase.endedAt || null,
+          status: phase.status || 'in_progress',
+          pauses: phase.pauses || [],
+          created_at: phase.createdAt,
+          updated_at: phase.updatedAt,
+        };
+        const { error } = await supabase.from('study_phases').upsert(payload, { onConflict: 'id' });
+        if (error) {
+          const isTableMissing = error.code === 'PGRST204' || error.message?.includes('schema cache');
+          set({
+            studySyncStatus: isTableMissing ? 'tables_missing' : 'error',
+            studySyncError: error.message,
+          });
+          return { success: false, error: error.message, isTableMissing };
+        }
+      }
+
+      // 4. Revisions
+      for (const rev of revisionsList) {
+        const payload = {
+          id: rev.id,
+          record_id: rev.recordId,
+          record_type: rev.recordType,
+          user_id: user.id,
+          field_name: rev.fieldName,
+          previous_value: rev.previousValue || null,
+          new_value: rev.newValue || null,
+          edited_at: rev.editedAt,
+        };
+        await supabase.from('study_revisions').upsert(payload, { onConflict: 'id' });
+      }
+
+      set({ studySyncStatus: 'synced', studySyncError: null });
+      return { success: true };
+    } catch (err) {
+      console.warn('syncAllLocalStudyDataToSupabase error:', err);
+      set({ studySyncStatus: 'error', studySyncError: err.message });
+      return { success: false, error: err.message };
     }
   },
 });

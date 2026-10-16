@@ -314,92 +314,107 @@ const useStore = create(
             supabase.from('study_revisions').select('*').eq('user_id', user.id),
           ]);
 
-          const studySessions = { ...get().studySessions };
-          if (sessRes?.data) {
-            sessRes.data.forEach((s) => {
-              studySessions[s.id] = {
-                id: s.id,
-                userId: s.user_id,
-                date: s.date,
-                startedAt: s.started_at,
-                endedAt: s.ended_at,
-                brainDump: s.brain_dump,
-                status: s.status,
-                createdAt: s.created_at,
-                updatedAt: s.updated_at,
-              };
+          const hasMissingTable = [sessRes, blocksRes, phasesRes, revRes].some(
+            (r) => r.error && (r.error.code === 'PGRST204' || r.error.message?.includes('schema cache'))
+          );
+
+          if (hasMissingTable) {
+            console.warn('Study Mode tables have not been created yet in Supabase.');
+            set({ studySyncStatus: 'tables_missing' });
+            get().initOrResumeStudyState();
+          } else {
+            const studySessions = { ...get().studySessions };
+            if (sessRes?.data) {
+              sessRes.data.forEach((s) => {
+                studySessions[s.id] = {
+                  id: s.id,
+                  userId: s.user_id,
+                  date: s.date,
+                  startedAt: s.started_at,
+                  endedAt: s.ended_at,
+                  brainDump: s.brain_dump,
+                  status: s.status,
+                  createdAt: s.created_at,
+                  updatedAt: s.updated_at,
+                };
+              });
+            }
+
+            const studyBlocks = { ...get().studyBlocks };
+            if (blocksRes?.data) {
+              blocksRes.data.forEach((b) => {
+                studyBlocks[b.id] = {
+                  id: b.id,
+                  sessionId: b.session_id,
+                  userId: b.user_id,
+                  sequenceNumber: b.sequence_number,
+                  course: b.course,
+                  topic: b.topic,
+                  plannedOutcome: b.planned_outcome,
+                  actualOutcome: b.actual_outcome,
+                  nextAction: b.next_action,
+                  focusRating: b.focus_rating,
+                  status: b.status,
+                  recallCompleteness: b.recall_completeness,
+                  createdAt: b.created_at,
+                  updatedAt: b.updated_at,
+                };
+              });
+            }
+
+            const studyPhases = { ...get().studyPhases };
+            if (phasesRes?.data) {
+              phasesRes.data.forEach((p) => {
+                studyPhases[p.id] = {
+                  id: p.id,
+                  blockId: p.block_id,
+                  userId: p.user_id,
+                  phaseType: p.phase_type,
+                  targetDuration: p.target_duration,
+                  startedAt: p.started_at,
+                  endedAt: p.ended_at,
+                  status: p.status,
+                  pauses: p.pauses || [],
+                  createdAt: p.created_at,
+                  updatedAt: p.updated_at,
+                };
+              });
+            }
+
+            const studyRevisions = { ...get().studyRevisions };
+            if (revRes?.data) {
+              revRes.data.forEach((r) => {
+                const list = studyRevisions[r.record_id] || [];
+                if (!list.some((existing) => existing.id === r.id)) {
+                  list.push({
+                    id: r.id,
+                    recordId: r.record_id,
+                    recordType: r.record_type,
+                    userId: r.user_id,
+                    fieldName: r.field_name,
+                    previousValue: r.previous_value,
+                    newValue: r.new_value,
+                    editedAt: r.edited_at,
+                  });
+                }
+                studyRevisions[r.record_id] = list;
+              });
+            }
+
+            set({
+              studySessions,
+              studyBlocks,
+              studyPhases,
+              studyRevisions,
+              studySyncStatus: 'synced',
+              studySyncError: null,
             });
+
+            get().initOrResumeStudyState();
+
+            // Backfill any local-only records to Supabase in the background
+            get().syncAllLocalStudyDataToSupabase();
           }
-
-          const studyBlocks = { ...get().studyBlocks };
-          if (blocksRes?.data) {
-            blocksRes.data.forEach((b) => {
-              studyBlocks[b.id] = {
-                id: b.id,
-                sessionId: b.session_id,
-                userId: b.user_id,
-                sequenceNumber: b.sequence_number,
-                course: b.course,
-                topic: b.topic,
-                plannedOutcome: b.planned_outcome,
-                actualOutcome: b.actual_outcome,
-                nextAction: b.next_action,
-                focusRating: b.focus_rating,
-                status: b.status,
-                recallCompleteness: b.recall_completeness,
-                createdAt: b.created_at,
-                updatedAt: b.updated_at,
-              };
-            });
-          }
-
-          const studyPhases = { ...get().studyPhases };
-          if (phasesRes?.data) {
-            phasesRes.data.forEach((p) => {
-              studyPhases[p.id] = {
-                id: p.id,
-                blockId: p.block_id,
-                userId: p.user_id,
-                phaseType: p.phase_type,
-                targetDuration: p.target_duration,
-                startedAt: p.started_at,
-                endedAt: p.ended_at,
-                status: p.status,
-                pauses: p.pauses || [],
-                createdAt: p.created_at,
-                updatedAt: p.updated_at,
-              };
-            });
-          }
-
-          const studyRevisions = { ...get().studyRevisions };
-          if (revRes?.data) {
-            revRes.data.forEach((r) => {
-              const list = studyRevisions[r.record_id] || [];
-              if (!list.some((existing) => existing.id === r.id)) {
-                list.push({
-                  id: r.id,
-                  recordId: r.record_id,
-                  recordType: r.record_type,
-                  userId: r.user_id,
-                  fieldName: r.field_name,
-                  previousValue: r.previous_value,
-                  newValue: r.new_value,
-                  editedAt: r.edited_at,
-                });
-              }
-              studyRevisions[r.record_id] = list;
-            });
-          }
-
-          set({
-            studySessions,
-            studyBlocks,
-            studyPhases,
-            studyRevisions,
-          });
-
-          get().initOrResumeStudyState();
         } catch (studyErr) {
           console.warn('Study Mode data fetch fallback:', studyErr);
           get().initOrResumeStudyState();
