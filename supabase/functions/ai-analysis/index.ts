@@ -14,7 +14,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { timeView, userId, clientData } = body;
+    const { timeView, userId, clientData, targetDate } = body;
     if (!timeView || !userId) {
       return new Response(JSON.stringify({ error: 'Missing timeView or userId' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -46,15 +46,23 @@ serve(async (req) => {
       });
     }
 
-    // Determine date range based on timeView
+    // Determine date range based on timeView and targetDate
     let days = 1;
     if (timeView === 'weekly') days = 7;
     else if (timeView === 'monthly') days = 30;
 
-    const pastDate = new Date();
-    pastDate.setDate(pastDate.getDate() - days + 1);
-    const dateStr = pastDate.toISOString().split('T')[0];
-    const todayStr = new Date().toISOString().split('T')[0];
+    let refDate = new Date();
+    if (targetDate) {
+      refDate = new Date(targetDate);
+    } else if (timeView === 'daily') {
+      // Default daily synthesis is T-1 day (yesterday)
+      refDate.setDate(refDate.getDate() - 1);
+    }
+
+    const endDateStr = refDate.toISOString().split('T')[0];
+    const startDate = new Date(refDate);
+    startDate.setDate(startDate.getDate() - days + 1);
+    const startDateStr = startDate.toISOString().split('T')[0];
 
     let tasks = [];
     let logs = [];
@@ -70,9 +78,9 @@ serve(async (req) => {
     } else {
       // Otherwise fetch across all four core tables in Supabase
       const [tasksRes, logsRes, sessRes, blocksRes] = await Promise.all([
-        supabase.from('tasks').select('*').eq('user_id', userId).gte('log_date', dateStr),
-        supabase.from('daily_logs').select('*').eq('user_id', userId).gte('date', dateStr),
-        supabase.from('study_sessions').select('*').eq('user_id', userId).gte('date', dateStr),
+        supabase.from('tasks').select('*').eq('user_id', userId).gte('log_date', startDateStr).lte('log_date', endDateStr),
+        supabase.from('daily_logs').select('*').eq('user_id', userId).gte('date', startDateStr).lte('date', endDateStr),
+        supabase.from('study_sessions').select('*').eq('user_id', userId).gte('date', startDateStr).lte('date', endDateStr),
         supabase.from('study_blocks').select('*').eq('user_id', userId),
       ]);
 

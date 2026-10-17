@@ -17,9 +17,15 @@ import { getCurrencySymbol } from '../utils/currency';
 export default function ChronicleGrid() {
   const [viewMonth, setViewMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [calendarClickedDate, setCalendarClickedDate] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [chronicleTab, setChronicleTab] = useState('discipline');
+
+  const handleCalendarSelect = (dateStr) => {
+    setSelectedDate(dateStr);
+    setCalendarClickedDate(dateStr);
+  };
 
   const getDayStatus = useStore((s) => s.getDayStatus);
   const searchEntries = useStore((s) => s.searchEntries);
@@ -197,11 +203,11 @@ export default function ChronicleGrid() {
                       today ? 'today' : '',
                       dateStr === selectedDate ? 'selected' : '',
                     ].join(' ')}
-                    onClick={() => isCurrentMonth && !future && setSelectedDate(dateStr)}
+                    onClick={() => isCurrentMonth && !future && handleCalendarSelect(dateStr)}
                     aria-label={`${format(day, 'MMMM d')}: ${status}`}
                     role={isCurrentMonth && !future ? 'button' : undefined}
                     tabIndex={isCurrentMonth && !future ? 0 : -1}
-                    onKeyDown={(e) => e.key === 'Enter' && isCurrentMonth && !future && setSelectedDate(dateStr)}
+                    onKeyDown={(e) => e.key === 'Enter' && isCurrentMonth && !future && handleCalendarSelect(dateStr)}
                     style={{ opacity: isCurrentMonth ? 1 : 0.2 }}
                   >
                     {format(day, 'd')}
@@ -311,7 +317,12 @@ export default function ChronicleGrid() {
             </div>
           </div>
 
-          <AnalyticsView earningsHistory={earningsHistory} tasksHistory={tasksHistory} coreDisciplines={coreDisciplines} />
+          <AnalyticsView
+            earningsHistory={earningsHistory}
+            tasksHistory={tasksHistory}
+            coreDisciplines={coreDisciplines}
+            selectedDate={calendarClickedDate}
+          />
         </div>
 
       </div>
@@ -322,7 +333,7 @@ export default function ChronicleGrid() {
   );
 }
 
-function AnalyticsView({ earningsHistory, tasksHistory, coreDisciplines }) {
+function AnalyticsView({ earningsHistory, tasksHistory, coreDisciplines, selectedDate }) {
   const [timeView, setTimeView] = useState('daily');
 
   const groupedEarnings = useMemo(() => {
@@ -465,7 +476,7 @@ function AnalyticsView({ earningsHistory, tasksHistory, coreDisciplines }) {
       </div>
 
       {/* F2.2: AI Insight Card */}
-      <AIInsightCard timeView={timeView} />
+      <AIInsightCard timeView={timeView} selectedDate={selectedDate} />
 
       {/* Multi-Bar Goal Consistency Chart */}
       <div className="card" style={{ padding: 'var(--sp-5)' }}>

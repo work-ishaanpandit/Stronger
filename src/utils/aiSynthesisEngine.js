@@ -10,14 +10,26 @@ import { format, subDays, startOfDay, parseISO } from 'date-fns';
  * @returns {Object} Compiled synthesis context
  */
 export function compileSynthesisContext(storeState, timeView = 'weekly', referenceDateStr) {
-  const today = referenceDateStr ? parseISO(referenceDateStr) : new Date();
-  const todayStr = format(today, 'yyyy-MM-dd');
+  const isDaily = timeView === 'daily' || timeView === '1d';
+  const isWeekly = timeView === 'weekly' || timeView === '7d';
+  const isMonthly = timeView === 'monthly' || timeView === '30d';
+
+  let refDate;
+  if (referenceDateStr) {
+    refDate = typeof referenceDateStr === 'string' ? parseISO(referenceDateStr) : referenceDateStr;
+  } else if (isDaily) {
+    // Default daily synthesis targets T-1 day (yesterday)
+    refDate = subDays(startOfDay(new Date()), 1);
+  } else {
+    refDate = startOfDay(new Date());
+  }
+  const endDateStr = format(refDate, 'yyyy-MM-dd');
 
   let days = 1;
-  if (timeView === 'weekly') days = 7;
-  else if (timeView === 'monthly') days = 30;
+  if (isWeekly) days = 7;
+  else if (isMonthly) days = 30;
 
-  const startDateObj = subDays(startOfDay(today), days - 1);
+  const startDateObj = subDays(startOfDay(refDate), days - 1);
   const startDateStr = format(startDateObj, 'yyyy-MM-dd');
 
   const {
@@ -31,7 +43,7 @@ export function compileSynthesisContext(storeState, timeView = 'weekly', referen
   // 1. Filter Daily Logs for the window
   const relevantLogs = [];
   Object.entries(dailyLogs).forEach(([date, log]) => {
-    if (date >= startDateStr && date <= todayStr) {
+    if (date >= startDateStr && date <= endDateStr) {
       if (log.highlight || log.learnedNotes || log.reflection || log.epiphany) {
         relevantLogs.push({
           date,
@@ -53,9 +65,9 @@ export function compileSynthesisContext(storeState, timeView = 'weekly', referen
       if (!t || t.status === 'cancelled') return;
 
       const taskDate = t.logDate || t.plannedDate || (dKey && /^\d{4}-\d{2}-\d{2}$/.test(dKey) ? dKey : null) || (t.createdAt ? t.createdAt.split('T')[0] : null);
-      const isDateInRange = taskDate && taskDate >= startDateStr && taskDate <= todayStr;
-      const isCompletedRecently = t.completedAt && t.completedAt.split('T')[0] >= startDateStr;
-      const hasRecentDeadline = t.deadline && t.deadline.split('T')[0] >= startDateStr && t.deadline.split('T')[0] <= todayStr;
+      const isDateInRange = taskDate && taskDate >= startDateStr && taskDate <= endDateStr;
+      const isCompletedRecently = t.completedAt && t.completedAt.split('T')[0] >= startDateStr && t.completedAt.split('T')[0] <= endDateStr;
+      const hasRecentDeadline = t.deadline && t.deadline.split('T')[0] >= startDateStr && t.deadline.split('T')[0] <= endDateStr;
 
       // Include task if it was scheduled, completed, or active in this window
       if (isDateInRange || isCompletedRecently || hasRecentDeadline) {
@@ -86,7 +98,7 @@ export function compileSynthesisContext(storeState, timeView = 'weekly', referen
 
   Object.values(studySessions).forEach((session) => {
     const sessionDate = session.date || (session.startedAt ? session.startedAt.split('T')[0] : (session.createdAt ? session.createdAt.split('T')[0] : null));
-    if (sessionDate && sessionDate >= startDateStr && sessionDate <= todayStr) {
+    if (sessionDate && sessionDate >= startDateStr && sessionDate <= endDateStr) {
       relevantSessions.push({
         id: session.id,
         date: sessionDate,
@@ -140,8 +152,9 @@ export function compileSynthesisContext(storeState, timeView = 'weekly', referen
   return {
     timeView,
     days,
+    targetDateStr: endDateStr,
     startDateStr,
-    endDateStr: todayStr,
+    endDateStr,
     logs: relevantLogs,
     tasks: relevantTasks,
     studySessions: relevantSessions,

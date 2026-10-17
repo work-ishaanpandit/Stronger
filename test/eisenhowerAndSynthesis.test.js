@@ -169,7 +169,8 @@ test('AI Synthesis Engine includes daily logs, study blocks, and task notes', as
     }
   };
 
-  const context1d = compileSynthesisContext(mockStoreState, '1d');
+  // 1. Pass specific date (e.g. today or clicked day)
+  const context1d = compileSynthesisContext(mockStoreState, '1d', todayStr);
   assert.equal(context1d.studyBlocks.length, 1);
   assert.equal(context1d.studyBlocks[0].course, 'Advanced Calculus');
   assert.equal(context1d.studyBlocks[0].actualOutcome, 'Successfully solved all 5. Discovered shortcut for partial fractions.');
@@ -177,6 +178,23 @@ test('AI Synthesis Engine includes daily logs, study blocks, and task notes', as
   assert.ok(context1d.tasks[0].notes.includes('Completed problems 1-12'));
   assert.equal(context1d.logs.length, 1);
   assert.ok(context1d.logs[0].highlight.includes('Laplace transforms'));
+
+  // 2. By default, daily synthesis targets T-1 day (yesterday)
+  const pastDate = new Date();
+  pastDate.setDate(pastDate.getDate() - 1);
+  const yesterdayStr = pastDate.toISOString().split('T')[0];
+
+  const defaultDaily = compileSynthesisContext(mockStoreState, 'daily');
+  assert.equal(defaultDaily.targetDateStr, yesterdayStr);
+  assert.equal(defaultDaily.startDateStr, yesterdayStr);
+  assert.equal(defaultDaily.days, 1);
+
+  // 3. When calendar day is clicked, daily synthesis targets that specific clicked date
+  const clickedDate = '2026-10-14';
+  const clickedDaily = compileSynthesisContext(mockStoreState, 'daily', clickedDate);
+  assert.equal(clickedDaily.targetDateStr, clickedDate);
+  assert.equal(clickedDaily.startDateStr, clickedDate);
+  assert.equal(clickedDaily.days, 1);
 
   // Test local synthesis generation
   const synthesis = generateLocalSynthesis(context1d);

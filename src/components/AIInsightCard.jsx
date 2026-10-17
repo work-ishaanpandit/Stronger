@@ -1,15 +1,19 @@
 import { useState, useEffect } from 'react';
+import { format, subDays, parseISO, isToday, isYesterday } from 'date-fns';
 import { Sparkles, Activity, RefreshCw, ChevronDown, ChevronUp, BookOpen, CheckSquare, FileText, Calendar } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import useStore from '../store/useStore';
 import { compileSynthesisContext, generateLocalSynthesis } from '../utils/aiSynthesisEngine';
 
-export default function AIInsightCard({ timeView = 'weekly' }) {
+export default function AIInsightCard({ timeView = 'weekly', selectedDate = null }) {
   const [insight, setInsight] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showDataDetails, setShowDataDetails] = useState(false);
   const [analyzedContext, setAnalyzedContext] = useState(null);
+  const [analyzedDateStr, setAnalyzedDateStr] = useState(null);
+
+  const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
 
   // Subscribe to all relevant store data
   const storeState = useStore((s) => ({
@@ -20,13 +24,21 @@ export default function AIInsightCard({ timeView = 'weekly' }) {
     studyPhases: s.studyPhases,
   }));
 
-  const fetchInsight = async () => {
+  const fetchInsight = async (targetDateOverride) => {
     setLoading(true);
     setError(null);
 
+    // Determine target date for synthesis:
+    // For daily: use targetDateOverride if passed, else selectedDate if passed, else default T-1 (yesterday)
+    let dateToUse = targetDateOverride;
+    if (!dateToUse && timeView === 'daily') {
+      dateToUse = selectedDate || yesterdayStr;
+    }
+
     // 1. Compile the complete user context across logs, study blocks, tasks & notes
-    const context = compileSynthesisContext(storeState, timeView);
+    const context = compileSynthesisContext(storeState, timeView, dateToUse);
     setAnalyzedContext(context);
+    setAnalyzedDateStr(context.targetDateStr);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -40,6 +52,7 @@ export default function AIInsightCard({ timeView = 'weekly' }) {
         },
         body: JSON.stringify({
           timeView,
+          targetDate: context.targetDateStr,
           userId: session.user.id,
           clientData: {
             tasks: context.tasks,
@@ -73,10 +86,23 @@ export default function AIInsightCard({ timeView = 'weekly' }) {
   };
 
   useEffect(() => {
+    // When timeView changes, fetch default synthesis (T-1 for daily)
     fetchInsight();
   }, [timeView]);
 
   const metrics = analyzedContext?.metrics || {};
+
+  const formatDateHeader = (dStr) => {
+    if (!dStr) return '';
+    try {
+      const d = parseISO(dStr);
+      if (isYesterday(d)) return `Yesterday (${format(d, 'MMM d')}) [T-1]`;
+      if (isToday(d)) return `Today (${format(d, 'MMM d')})`;
+      return format(d, 'EEE, MMM d, yyyy');
+    } catch (e) {
+      return dStr;
+    }
+  };
 
   return (
     <div className="card anim-scale" style={{ 
@@ -93,16 +119,50 @@ export default function AIInsightCard({ timeView = 'weekly' }) {
         borderRadius: '50%', pointerEvents: 'none'
       }} />
 
+      {/* Calendar Day Selected Notice Banner */}
+      {timeView === 'daily' && selectedDate && selectedDate !== analyzedDateStr && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '6px 12px',
+          marginBottom: 'var(--sp-3)',
+          background: 'rgba(191, 90, 242, 0.12)',
+          border: '1px solid rgba(191, 90, 242, 0.3)',
+          borderRadius: 'var(--radius-sm)',
+          fontSize: 12,
+        }}>
+          <span style={{ color: 'var(--text-secondary)' }}>
+            📅 Calendar day selected: <strong style={{ color: 'var(--text-primary)' }}>{format(parseISO(selectedDate), 'MMM d, yyyy')}</strong>
+          </span>
+          <button
+            className="btn btn-xs btn-primary"
+            onClick={() => fetchInsight(selectedDate)}
+            disabled={loading}
+            style={{ fontSize: 11, padding: '2px 8px', height: 22 }}
+          >
+            <RefreshCw size={11} className={loading ? 'anim-spin' : ''} style={{ marginRight: 4 }} />
+            Synthesize this day
+          </button>
+        </div>
+      )}
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--sp-4)' }}>
-        <h3 className="text-sm font-semibold text-purple" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <h3 className="text-sm font-semibold text-purple" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <Sparkles size={16} />
-          {timeView === 'daily' ? '1-Day AI Synthesis' : timeView === 'weekly' ? '7-Day AI Synthesis' : '30-Day AI Synthesis'}
+          <span>
+            {timeView === 'daily' 
+              ? `1-Day AI Synthesis • ${formatDateHeader(analyzedDateStr || yesterdayStr)}` 
+              : timeView === 'weekly' 
+                ? '7-Day AI Synthesis' 
+                : '30-Day AI Synthesis'}
+          </span>
         </h3>
         <button 
           className="btn btn-ghost btn-sm btn-icon" 
-          onClick={fetchInsight} 
+          onClick={() => fetchInsight(selectedDate)} 
           disabled={loading}
-          title="Regenerate Insight"
+          title={selectedDate && selectedDate !== analyzedDateStr ? `Synthesize ${selectedDate}` : "Regenerate Insight"}
           style={{ color: 'var(--text-tertiary)' }}
         >
           <RefreshCw size={14} className={loading ? 'anim-spin' : ''} />
