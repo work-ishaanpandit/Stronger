@@ -1,7 +1,7 @@
 import { format, parseISO } from 'date-fns';
 import { X, Calendar, Clock, AlertTriangle, CheckCircle, Zap, Rocket, Skull, Leaf, Tag, Edit3, Trash2, Plus, FastForward } from 'lucide-react';
 import useStore from '../store/useStore';
-import { getEisenhowerQuadrant, isTaskOverdue } from '../utils/eisenhower';
+import { getEisenhowerQuadrant, isTaskOverdue, getDeadlineStatus } from '../utils/eisenhower';
 import { getCurrencySymbol } from '../utils/currency';
 
 export default function TaskDetailModal({ task, onClose, onEdit }) {
@@ -14,7 +14,8 @@ export default function TaskDetailModal({ task, onClose, onEdit }) {
   const todayStr = new Date().toISOString().split('T')[0];
   const isAssignedToToday = task.logDate === todayStr || task.plannedDate === todayStr;
   const overdue = isTaskOverdue(task);
-  const quadrant = getEisenhowerQuadrant(task.importance, task.urgency);
+  const dlStatus = getDeadlineStatus(task);
+  const quadrant = getEisenhowerQuadrant(task.importance, task.urgency, task);
   const currencySymbol = getCurrencySymbol(settings?.currency);
 
   const handleAddToToday = () => {
@@ -50,7 +51,19 @@ export default function TaskDetailModal({ task, onClose, onEdit }) {
               {task.type === 'power' && <span className="badge badge-purple">Power 2×</span>}
               {task.type === 'kickass' && <span className="badge badge-red">Kickass Penalty</span>}
               {task.tag && <span className="badge badge-blue">#{task.tag}</span>}
-              {overdue && <span className="badge badge-red">⚠️ OVERDUE</span>}
+              {dlStatus && (
+                <span
+                  className="badge"
+                  style={{
+                    background: dlStatus.isOverdue ? 'rgba(255, 69, 58, 0.12)' : 'rgba(255, 159, 10, 0.12)',
+                    color: dlStatus.isOverdue ? 'var(--red)' : 'var(--orange)',
+                    border: `1px solid ${dlStatus.isOverdue ? 'rgba(255, 69, 58, 0.3)' : 'rgba(255, 159, 10, 0.3)'}`,
+                    fontWeight: 600,
+                  }}
+                >
+                  {dlStatus.isOverdue ? `⚠️ ${dlStatus.label}` : `⏳ ${dlStatus.label}`}
+                </span>
+              )}
             </div>
             <h2 className="modal-title" style={{ fontSize: '1.25rem' }}>{task.name || task.title}</h2>
           </div>

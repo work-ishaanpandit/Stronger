@@ -4,7 +4,7 @@ import { Zap, Rocket, Skull, Leaf, RefreshCw, X, Plus, Target, CheckCircle, Acti
 import useStore from '../store/useStore';
 import TaskCreationSheet from '../components/TaskCreationSheet';
 import DisciplineCreationSheet from '../components/DisciplineCreationSheet';
-import { isTaskOverdue, isTaskDueSoon } from '../utils/eisenhower';
+import { isTaskOverdue, isTaskDueSoon, getDeadlineStatus } from '../utils/eisenhower';
 import { getCurrencySymbol } from '../utils/currency';
 
 const TODAY = format(new Date(), 'yyyy-MM-dd');
@@ -54,15 +54,36 @@ export default function DawnAlignment() {
   const allBasketTasks = getTaskBasket();
   const basketSuggestions = useMemo(() => {
     const uncommitted = allBasketTasks.filter((t) => t.logDate !== TODAY && t.plannedDate !== TODAY);
+    
+    // 1. Overdue tasks (deadline < today)
     const overdue = uncommitted.filter((t) => isTaskOverdue(t));
-    const impUrg = uncommitted.filter(
-      (t) => (t.importance || 'Medium').toLowerCase() === 'high' && (t.urgency || 'Medium').toLowerCase() === 'high' && !overdue.some((o) => o.id === t.id)
-    );
-    const dueSoon = uncommitted.filter(
-      (t) => isTaskDueSoon(t, 7) && !overdue.some((o) => o.id === t.id) && !impUrg.some((i) => i.id === t.id)
+    
+    // 2. Tasks with deadline within a week (due in <= 7 days, not overdue)
+    // Automatically categorized:
+    // If High Importance -> Do Now
+    // If Not High Importance -> Quick Action
+    const dueThisWeek = uncommitted.filter((t) => isTaskDueSoon(t, 7) && !overdue.some((o) => o.id === t.id));
+    const dueThisWeekDoNow = dueThisWeek.filter((t) => (t.importance || 'Medium').toLowerCase() === 'high');
+    const dueThisWeekQuickAction = dueThisWeek.filter((t) => (t.importance || 'Medium').toLowerCase() !== 'high');
+
+    // 3. Other tasks marked Important & Urgent without a deadline or deadline > 7 days
+    const otherImpUrg = uncommitted.filter(
+      (t) => (t.importance || 'Medium').toLowerCase() === 'high' && 
+             (t.urgency || 'Medium').toLowerCase() === 'high' && 
+             !overdue.some((o) => o.id === t.id) &&
+             !dueThisWeek.some((d) => d.id === t.id)
     );
 
-    return { overdue, impUrg, dueSoon, totalAvailable: uncommitted.length };
+    const urgentCount = overdue.length + dueThisWeek.length + otherImpUrg.length;
+
+    return { 
+      overdue, 
+      dueThisWeekDoNow, 
+      dueThisWeekQuickAction, 
+      otherImpUrg, 
+      urgentCount,
+      totalAvailable: uncommitted.length 
+    };
   }, [allBasketTasks]);
 
   return (
@@ -296,32 +317,50 @@ export default function DawnAlignment() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+                {/* 1. Overdue Tasks */}
                 {basketSuggestions.overdue.map((task) => (
                   <BasketReviewRow
                     key={task.id}
                     task={task}
                     badge="⚠️ OVERDUE"
                     badgeColor="var(--red)"
+                    deadlineStatus={getDeadlineStatus(task)}
                     onAdd={() => assignTaskToToday(task.id, TODAY)}
                   />
                 ))}
 
-                {basketSuggestions.impUrg.map((task) => (
+                {/* 2. Deadline <= 7 Days: Important -> DO NOW */}
+                {basketSuggestions.dueThisWeekDoNow.map((task) => (
                   <BasketReviewRow
                     key={task.id}
                     task={task}
                     badge="🔴 DO NOW"
                     badgeColor="var(--red)"
+                    deadlineStatus={getDeadlineStatus(task)}
                     onAdd={() => assignTaskToToday(task.id, TODAY)}
                   />
                 ))}
 
-                {basketSuggestions.dueSoon.map((task) => (
+                {/* 3. Deadline <= 7 Days: Not Important -> QUICK ACTION */}
+                {basketSuggestions.dueThisWeekQuickAction.map((task) => (
                   <BasketReviewRow
                     key={task.id}
                     task={task}
-                    badge="📅 DUE SOON"
-                    badgeColor="var(--orange)"
+                    badge="🟠 QUICK ACTION"
+                    badgeColor="var(--purple)"
+                    deadlineStatus={getDeadlineStatus(task)}
+                    onAdd={() => assignTaskToToday(task.id, TODAY)}
+                  />
+                ))}
+
+                {/* 4. Other Important & Urgent Tasks */}
+                {basketSuggestions.otherImpUrg.map((task) => (
+                  <BasketReviewRow
+                    key={task.id}
+                    task={task}
+                    badge="🔴 DO NOW"
+                    badgeColor="var(--red)"
+                    deadlineStatus={getDeadlineStatus(task)}
                     onAdd={() => assignTaskToToday(task.id, TODAY)}
                   />
                 ))}
@@ -347,7 +386,7 @@ export default function DawnAlignment() {
   );
 }
 
-function BasketReviewRow({ task, badge, badgeColor, onAdd }) {
+function BasketReviewRow({ task, badge, badgeColor, deadlineStatus, onAdd }) {
   return (
     <div style={{
       display: 'flex',
@@ -366,13 +405,32 @@ function BasketReviewRow({ task, badge, badgeColor, onAdd }) {
         <span className="font-medium text-xs text-primary">{task.name || task.title}</span>
       </div>
 
-      <button
-        className="btn btn-sm btn-ghost"
-        onClick={onAdd}
-        style={{ fontSize: 11, padding: '2px 6px', height: 24, color: 'var(--blue)' }}
-      >
-        <Plus size={12} /> Add
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        {deadlineStatus && (
+          <span
+            className="badge"
+            style={{
+              fontSize: 10,
+              padding: '2px 7px',
+              background: deadlineStatus.isOverdue ? 'rgba(255, 69, 58, 0.12)' : 'rgba(255, 159, 10, 0.12)',
+              color: deadlineStatus.isOverdue ? 'var(--red)' : 'var(--orange)',
+              border: `1px solid ${deadlineStatus.isOverdue ? 'rgba(255, 69, 58, 0.3)' : 'rgba(255, 159, 10, 0.3)'}`,
+              fontWeight: 500,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {deadlineStatus.label}
+          </span>
+        )}
+
+        <button
+          className="btn btn-sm btn-ghost"
+          onClick={onAdd}
+          style={{ fontSize: 11, padding: '2px 8px', height: 24, color: 'var(--blue)' }}
+        >
+          <Plus size={12} /> Add
+        </button>
+      </div>
     </div>
   );
 }

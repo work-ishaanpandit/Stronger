@@ -4,7 +4,7 @@ import { Plus, Search, ArrowUpDown, RefreshCw, Layers, Clock, Grid, List as List
 import useStore from '../store/useStore';
 import TaskCreationSheet from '../components/TaskCreationSheet';
 import TaskDetailModal from '../components/TaskDetailModal';
-import { getEisenhowerQuadrant, filterTasks, sortTasks, isTaskOverdue, isTaskDueSoon, QUADRANTS } from '../utils/eisenhower';
+import { getEisenhowerQuadrant, filterTasks, sortTasks, isTaskOverdue, isTaskDueSoon, getDeadlineStatus, QUADRANTS } from '../utils/eisenhower';
 import { getCurrencySymbol } from '../utils/currency';
 
 let globalIsDragging = false;
@@ -81,7 +81,7 @@ export default function TaskBasket() {
       someday: [],
     };
     processedTasks.forEach((task) => {
-      const q = getEisenhowerQuadrant(task.importance, task.urgency);
+      const q = getEisenhowerQuadrant(task.importance, task.urgency, task);
       if (groups[q.key]) groups[q.key].push(task);
     });
     return groups;
@@ -604,7 +604,8 @@ function TaskCard({ task, onSelect, onAddToToday, onMoveQuadrant, currencySymbol
   const isAssignedToToday = task.logDate === todayStr || task.plannedDate === todayStr;
   const overdue = isTaskOverdue(task);
   const dueSoon = isTaskDueSoon(task, 7);
-  const qInfo = getEisenhowerQuadrant(task.importance, task.urgency);
+  const qInfo = getEisenhowerQuadrant(task.importance, task.urgency, task);
+  const dlStatus = getDeadlineStatus(task);
 
   const handleDragStart = (e) => {
     globalIsDragging = true;
@@ -656,8 +657,20 @@ function TaskCard({ task, onSelect, onAddToToday, onMoveQuadrant, currencySymbol
               {task.name || task.title}
             </span>
             {task.tag && <span className="badge badge-purple" style={{ fontSize: 10 }}>#{task.tag}</span>}
-            {overdue && <span className="badge badge-red" style={{ fontSize: 10 }}>OVERDUE</span>}
-            {dueSoon && !overdue && <span className="badge badge-yellow" style={{ fontSize: 10 }}>DUE SOON</span>}
+            {dlStatus ? (
+              <span
+                className="badge"
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  background: dlStatus.isOverdue ? 'rgba(255, 69, 58, 0.12)' : 'rgba(255, 159, 10, 0.12)',
+                  color: dlStatus.isOverdue ? 'var(--red)' : 'var(--orange)',
+                  border: `1px solid ${dlStatus.isOverdue ? 'rgba(255, 69, 58, 0.3)' : 'rgba(255, 159, 10, 0.3)'}`,
+                }}
+              >
+                {dlStatus.isOverdue ? `⚠️ ${dlStatus.label}` : `⏳ ${dlStatus.label}`}
+              </span>
+            ) : null}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4, fontSize: 11, color: 'var(--text-tertiary)' }}>

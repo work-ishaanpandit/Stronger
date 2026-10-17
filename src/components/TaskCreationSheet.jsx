@@ -164,7 +164,7 @@ export default function TaskCreationSheet({ date, task = null, onClose }) {
 
             {/* Dynamic Quadrant Badge */}
             {(() => {
-              const q = getEisenhowerQuadrant(form.importance, form.urgency);
+              const q = getEisenhowerQuadrant(form.importance, form.urgency, form);
               return (
                 <span className="badge" style={{ background: q.bg, color: q.color, border: `1px solid ${q.border}`, fontSize: 11, fontWeight: 600 }}>
                   {q.emoji} {q.label}

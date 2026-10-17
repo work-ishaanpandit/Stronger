@@ -6,3 +6,4 @@ dist/
 server/calendar-data.json
 *.log
 .DS_Store
+supabase/.temp/

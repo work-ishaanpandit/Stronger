@@ -39,9 +39,16 @@ export const QUADRANTS = {
   },
 };
 
-export function getEisenhowerQuadrant(importance = 'Medium', urgency = 'Medium') {
-  const isHighImp = String(importance).toLowerCase() === 'high';
-  const isHighUrg = String(urgency).toLowerCase() === 'high';
+export function getEisenhowerQuadrant(importance = 'Medium', urgency = 'Medium', task = null) {
+  let isHighImp = String(importance).toLowerCase() === 'high';
+  let isHighUrg = String(urgency).toLowerCase() === 'high';
+
+  // Tasks with deadlines within a week (due soon or overdue) automatically become Urgent
+  // If marked Important -> Do Now
+  // If marked Not Important -> Quick Action (delegate)
+  if (task && (isTaskDueSoon(task, 7) || isTaskOverdue(task))) {
+    isHighUrg = true;
+  }
 
   if (isHighImp && isHighUrg) return QUADRANTS.do_now;
   if (isHighImp && !isHighUrg) return QUADRANTS.schedule;
@@ -50,7 +57,7 @@ export function getEisenhowerQuadrant(importance = 'Medium', urgency = 'Medium')
 }
 
 export function isTaskOverdue(task) {
-  if (!task.deadline || task.status === 'finished' || task.status === 'cancelled') return false;
+  if (!task || !task.deadline || task.status === 'finished' || task.status === 'cancelled') return false;
   try {
     const d = new Date(task.deadline);
     return new Date() > d;
@@ -60,7 +67,7 @@ export function isTaskOverdue(task) {
 }
 
 export function isTaskDueSoon(task, daysThreshold = 7) {
-  if (!task.deadline || task.status === 'finished' || task.status === 'cancelled') return false;
+  if (!task || !task.deadline || task.status === 'finished' || task.status === 'cancelled') return false;
   try {
     const d = new Date(task.deadline);
     const now = new Date();
@@ -68,6 +75,53 @@ export function isTaskDueSoon(task, daysThreshold = 7) {
     return d >= startOfDay(now) && d <= futureLimit;
   } catch (e) {
     return false;
+  }
+}
+
+/**
+ * Returns deadline metrics with exact days left or days overdue.
+ * @param {Object} task
+ * @returns {{ label: string, isOverdue: boolean, days: number, isWithinWeek: boolean } | null}
+ */
+export function getDeadlineStatus(task) {
+  if (!task || !task.deadline || task.status === 'finished' || task.status === 'cancelled') return null;
+  try {
+    const d = startOfDay(new Date(task.deadline));
+    const now = startOfDay(new Date());
+    const diffDays = Math.round((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+      const overdue = Math.abs(diffDays);
+      return {
+        label: `${overdue} ${overdue === 1 ? 'day' : 'days'} overdue`,
+        isOverdue: true,
+        days: diffDays,
+        isWithinWeek: true,
+      };
+    } else if (diffDays === 0) {
+      return {
+        label: 'Due today',
+        isOverdue: false,
+        days: 0,
+        isWithinWeek: true,
+      };
+    } else if (diffDays <= 7) {
+      return {
+        label: `${diffDays} ${diffDays === 1 ? 'day' : 'days'} left`,
+        isOverdue: false,
+        days: diffDays,
+        isWithinWeek: true,
+      };
+    } else {
+      return {
+        label: `${diffDays} days left`,
+        isOverdue: false,
+        days: diffDays,
+        isWithinWeek: false,
+      };
+    }
+  } catch (e) {
+    return null;
   }
 }
 
@@ -114,10 +168,12 @@ export function filterTasks(taskList = [], { filter = 'all', category = 'all', p
       return (t.importance || 'Medium').toLowerCase() === 'high';
     }
     if (filter === 'urgent') {
-      return (t.urgency || 'Medium').toLowerCase() === 'high';
+      return (t.urgency || 'Medium').toLowerCase() === 'high' || isTaskDueSoon(t, 7) || isTaskOverdue(t);
     }
     if (filter === 'important_urgent') {
-      return (t.importance || 'Medium').toLowerCase() === 'high' && (t.urgency || 'Medium').toLowerCase() === 'high';
+      const isHighImp = (t.importance || 'Medium').toLowerCase() === 'high';
+      const isHighUrg = (t.urgency || 'Medium').toLowerCase() === 'high' || isTaskDueSoon(t, 7) || isTaskOverdue(t);
+      return isHighImp && isHighUrg;
     }
 
     return true;
