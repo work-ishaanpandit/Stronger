@@ -15,15 +15,6 @@ export default function AIInsightCard({ timeView = 'weekly', selectedDate = null
 
   const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
 
-  // Subscribe to all relevant store data
-  const storeState = useStore((s) => ({
-    dailyLogs: s.dailyLogs,
-    tasks: s.tasks,
-    studySessions: s.studySessions,
-    studyBlocks: s.studyBlocks,
-    studyPhases: s.studyPhases,
-  }));
-
   const fetchInsight = async (targetDateOverride) => {
     setLoading(true);
     setError(null);
@@ -35,7 +26,8 @@ export default function AIInsightCard({ timeView = 'weekly', selectedDate = null
       dateToUse = selectedDate || yesterdayStr;
     }
 
-    // 1. Compile the complete user context across logs, study blocks, tasks & notes
+    // 1. Compile the complete user context across logs, study blocks, tasks & notes directly from store snapshot
+    const storeState = useStore.getState();
     const context = compileSynthesisContext(storeState, timeView, dateToUse);
     setAnalyzedContext(context);
     setAnalyzedDateStr(context.targetDateStr);

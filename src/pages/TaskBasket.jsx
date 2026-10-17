@@ -33,8 +33,8 @@ export default function TaskBasket() {
   const [commitTask, setCommitTask] = useState(null);
 
   const todayStr = new Date().toISOString().split('T')[0];
-  const allBasketTasks = getTaskBasket();
-  const archivedTasks = getArchivedTasks();
+  const allBasketTasks = useMemo(() => getTaskBasket(), [storeTasks, coreDisciplines]);
+  const archivedTasks = useMemo(() => getArchivedTasks(), [storeTasks, coreDisciplines]);
   const currencySymbol = getCurrencySymbol(settings?.currency);
 
   // Extract unique categories/tags

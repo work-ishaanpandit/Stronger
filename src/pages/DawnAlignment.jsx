@@ -51,8 +51,8 @@ export default function DawnAlignment() {
   const completionRatio = tasks.length > 0 ? (completedCount / tasks.length) * 100 : 0;
 
   // Task Basket review items
-  const allBasketTasks = getTaskBasket();
   const basketSuggestions = useMemo(() => {
+    const allBasketTasks = getTaskBasket();
     const uncommitted = allBasketTasks.filter((t) => t.logDate !== TODAY && t.plannedDate !== TODAY);
     
     // 1. Overdue tasks (deadline < today)
@@ -84,7 +84,7 @@ export default function DawnAlignment() {
       urgentCount,
       totalAvailable: uncommitted.length 
     };
-  }, [allBasketTasks]);
+  }, [storeTasks, coreDisciplines]);
 
   return (
     <main className="page anim-fade">
